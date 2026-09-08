@@ -37,39 +37,38 @@
       const searchInput = document.getElementById('movieSearch');
       const movieGrid = document.getElementById('movieGrid');
 
-      searchInput.addEventListener('input', async (e) => {
-        const query = e.target.value.trim();
-        if (query.length < 2) {
-          movieGrid.innerHTML = '';
-          return;
-        }
+     // Correct pattern used in movies.html / games.html
+searchInput.addEventListener('input', async (e) => {
+  const query = e.target.value.trim();
+  if (query.length < 2) {
+    movieGrid.innerHTML = '';
+    return;
+  }
 
-        try {
-          // Call your Supabase Edge Function instead of TMDB directly
-          const response = await fetch(`${SUPABASE_URL}/tmdb-movies?query=${encodeURIComponent(query)}`, {
-            headers: {
-              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-            }
-          });
+  try {
+    const response = await fetch(`${SUPABASE_URL}/tmdb-movies?query=${encodeURIComponent(query)}`, {
+      headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+    });
 
-          if (!response.ok) throw new Error(`Server error: ${response.status}`);
+    if (!response.ok) throw new Error(`Server error: ${response.status}`);
 
-          const data = await response.json();
-          const results = data.results || data; // Handles both raw TMDB search arrays or custom normalized output
+    const data = await response.json();
+    const results = data.results || data;
 
-          movieGrid.innerHTML = results.map(movie => `
-            <div class="card">
-              <img src="${movie.poster_path ? 'https://image.tmdb.org/t/p/w500' + movie.poster_path : 'https://via.placeholder.com/200x300'}" alt="${movie.title}">
-              <h3>${movie.title}</h3>
-              <p>Rating: ⭐ ${movie.vote_average ? movie.vote_average.toFixed(1) : 'N/A'}</p>
-              <a href="review.html?id=${movie.id}&type=movie" class="btn-review">Reviews & Ratings</a>
-            </div>
-          `).join('');
-        } catch (err) {
-          console.error('Error fetching movies:', err);
-          movieGrid.innerHTML = '<p class="error">Unable to load movies at this time.</p>';
-        }
-      });
+    // Standard string mapping without inline 'onclick' handlers
+    movieGrid.innerHTML = results.map(movie => `
+      <div class="card">
+        <img src="${movie.poster_path ? 'https://image.tmdb.org/t/p/w500' + movie.poster_path : 'https://via.placeholder.com/200x300'}" alt="${movie.title}">
+        <h3>${movie.title}</h3>
+        <p>Rating: ⭐ ${movie.vote_average ? (movie.vote_average / 2).toFixed(1) : 'N/A'}</p>
+        <a href="review.html?id=${movie.id}&type=movie" class="btn-review">Reviews & Ratings</a>
+      </div>
+    `).join('');
+  } catch (err) {
+    console.error('Error fetching movies:', err);
+    movieGrid.innerHTML = '<p class="error">Unable to load movies at this time.</p>';
+  }
+});
     </script>
   </body>
 </html>
