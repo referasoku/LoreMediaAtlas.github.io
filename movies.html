@@ -30,9 +30,9 @@
     </main>
 
     <script>
-      //Using a free API key from https://www.themoviedb.org/
-      //Please get your own API key if you are viewing this and wanting to create your own
-      const TMDB_API_KEY = '564e6671b19d2797c76255a4aefc8ba6';
+      // Supabase Edge Function Configuration
+      const SUPABASE_URL = 'https://tpeqgjgeeyrepaijdcuj.supabase.co/functions/v1';
+      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwZXFnamdlZXlyZXBhaWpkY3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NzczMjMsImV4cCI6MjEwNDE1MzMyM30.YEAcpOlAiaFdYHniMZdzM684NYiF5fVPVXUaRGWraC4';
 
       const searchInput = document.getElementById('movieSearch');
       const movieGrid = document.getElementById('movieGrid');
@@ -45,21 +45,31 @@
         }
 
         try {
-          const response = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`);
-          const data = await response.json();
+          // Call your Supabase Edge Function instead of TMDB directly
+          const response = await fetch(`${SUPABASE_URL}/tmdb-movies?query=${encodeURIComponent(query)}`, {
+            headers: {
+              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            }
+          });
 
-          movieGrid.innerHTML = data.results.map(movie => `
+          if (!response.ok) throw new Error(`Server error: ${response.status}`);
+
+          const data = await response.json();
+          const results = data.results || data; // Handles both raw TMDB search arrays or custom normalized output
+
+          movieGrid.innerHTML = results.map(movie => `
             <div class="card">
               <img src="${movie.poster_path ? 'https://image.tmdb.org/t/p/w500' + movie.poster_path : 'https://via.placeholder.com/200x300'}" alt="${movie.title}">
               <h3>${movie.title}</h3>
-              <p>Rating: ⭐ ${movie.vote_average}</p>
+              <p>Rating: ⭐ ${movie.vote_average ? movie.vote_average.toFixed(1) : 'N/A'}</p>
               <a href="review.html?id=${movie.id}&type=movie" class="btn-review">Reviews & Ratings</a>
             </div>
           `).join('');
-          } catch (err) {
-            console.error('Error fetching movies:', err);
-          }
-        });
+        } catch (err) {
+          console.error('Error fetching movies:', err);
+          movieGrid.innerHTML = '<p class="error">Unable to load movies at this time.</p>';
+        }
+      });
     </script>
   </body>
 </html>
