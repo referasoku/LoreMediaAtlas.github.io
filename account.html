@@ -28,7 +28,7 @@
     <h1 id="profileHeader">My Profile</h1>
     <p style="margin-bottom: 2rem;">Manage and view submitted reviews.</p>
 
-    <!-- Tab Selection without inline onclick attributes -->
+    <!-- Tab Selection -->
     <div class="tab-container" style="margin-bottom: 1.5rem;">
       <button class="tab-btn active" id="movieTabBtn">Movie Reviews</button>
       <button class="tab-btn" id="gameTabBtn">Game Reviews</button>
@@ -42,6 +42,7 @@
 
   <script>
     let activeTab = 'movie';
+    let isInitialized = false;
 
     // Parse URL Parameters (?user=Username)
     const urlParams = new URLSearchParams(window.location.search);
@@ -53,7 +54,7 @@
     const userReviewsList = document.getElementById('userReviewsList');
     const profileHeader = document.getElementById('profileHeader');
 
-    // Safe Event Listeners replacing inline onclicks
+    // Tab Listeners
     movieTabBtn.addEventListener('click', () => switchTab('movie'));
     gameTabBtn.addEventListener('click', () => switchTab('game'));
 
@@ -62,15 +63,22 @@
       movieTabBtn.classList.toggle('active', type === 'movie');
       gameTabBtn.classList.toggle('active', type === 'game');
 
-      const targetUsername = viewedUser || (typeof currentUserProfile !== 'undefined' && currentUserProfile ? currentUserProfile.username : null);
+      const targetUsername = getTargetUsername();
       if (targetUsername) {
         fetchUserReviews(targetUsername);
       }
     }
 
-    // Helper function to render numerical ratings (including half-stars)
+    function getTargetUsername() {
+      if (viewedUser) return viewedUser;
+      if (typeof currentUserProfile !== 'undefined' && currentUserProfile) {
+        return currentUserProfile.username;
+      }
+      return null;
+    }
+
     function renderRatingStars(rating) {
-      if (!rating && rating !== 0) return 'N/A';
+      if (rating === null || rating === undefined) return 'N/A';
       const num = parseFloat(rating);
       return `⭐ ${num.toFixed(1)} / 5`;
     }
@@ -89,22 +97,22 @@
         if (error) throw error;
 
         if (!reviews || reviews.length === 0) {
-          userReviewsList.innerHTML = `<p>No ${activeTab} reviews posted yet by @${username}.</p>`;
+          userReviewsList.innerHTML = `<p>No ${activeTab} reviews posted yet by @${escapeHtml(username)}.</p>`;
           return;
         }
 
         userReviewsList.innerHTML = reviews.map(r => `
           <div class="review-card" style="display: flex; gap: 1rem; align-items: flex-start; margin-bottom: 1rem; background: var(--card-bg, #1e293b); padding: 1rem; border-radius: 8px;">
-            ${r.item_image ? `<img src="${r.item_image}" alt="${r.item_title}" style="width: 70px; height: 100px; object-fit: cover; border-radius: 6px;">` : ''}
+            ${r.item_image ? `<img src="${escapeHtml(r.item_image)}" alt="${escapeHtml(r.item_title || '')}" style="width: 70px; height: 100px; object-fit: cover; border-radius: 6px;">` : ''}
             <div style="flex: 1;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
-                <h3 style="margin: 0;">${r.item_title || 'Untitled'}</h3>
+                <h3 style="margin: 0;">${escapeHtml(r.item_title || 'Untitled')}</h3>
                 <span style="color: #f59e0b; font-weight: bold;">${renderRatingStars(r.rating)}</span>
               </div>
-              <p style="margin: 0.5rem 0;">${r.comment || r.review_text || ''}</p>
+              <p style="margin: 0.5rem 0;">${escapeHtml(r.comment || r.review_text || '')}</p>
               <div style="display: flex; justify-content: space-between; align-items: center;">
                 <small style="color: gray;">Posted ${new Date(r.created_at).toLocaleDateString()}</small>
-                <a href="review.html?id=${r.item_id}&type=${r.item_type}" style="color: var(--accent-color); text-decoration: none; font-size: 0.9rem;">View Item Page →</a>
+                <a href="review.html?id=${encodeURIComponent(r.item_id)}&type=${encodeURIComponent(r.item_type)}" style="color: var(--accent-color); text-decoration: none; font-size: 0.9rem;">View Item Page →</a>
               </div>
             </div>
           </div>
@@ -115,14 +123,23 @@
       }
     }
 
-    async function initAccountPage() {
-      let targetUsername = viewedUser;
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
 
-      if (!targetUsername && typeof currentUserProfile !== 'undefined' && currentUserProfile) {
-        targetUsername = currentUserProfile.username;
-      }
+    async function initAccountPage() {
+      if (isInitialized) return;
+      
+      const targetUsername = getTargetUsername();
 
       if (targetUsername) {
+        isInitialized = true;
         profileHeader.textContent = `@${targetUsername}'s Profile`;
         fetchUserReviews(targetUsername);
       } else {
@@ -130,10 +147,16 @@
       }
     }
 
-    // Safely initialize when DOM and auth state are ready
-    window.addEventListener('DOMContentLoaded', () => {
-      // Small deferred execution to ensure js/auth.js variables populate
-      setTimeout(initAccountPage, 100);
+    // 1. Listen for authReady event if auth.js finishes AFTER script load
+    window.addEventListener('authReady', () => {
+      initAccountPage();
+    });
+
+    // 2. Immediate check on DOMContentLoaded if auth.js finished BEFORE script load
+    document.addEventListener('DOMContentLoaded', () => {
+      if (viewedUser || (typeof currentUserProfile !== 'undefined' && currentUserProfile)) {
+        initAccountPage();
+      }
     });
   </script>
 </body>
