@@ -31,17 +31,28 @@
 
     <script>
       const SUPABASE_URL = 'https://tpeqgjgeeyrepaijdcuj.supabase.co/functions/v1';
-      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwZXFnamdlZXlyZXBhaWpkY3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NzczMjMsImV4cCI6MjEwNDE1MzMyM30.YEAcpOlAiaFdYHniMZdzM684NYiF5fVPVXUaRGWraC4';
+      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwZXFnamdlZXlyZXBhaWpkY3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NzczMjMsImV4cCI62E0NDE1MzMyM30.YEAcpOlAiaFdYHniMZdzM684NYiF5fVPVXUaRGWraC4';
 
       const searchInput = document.getElementById('movieSearch');
       const movieGrid = document.getElementById('movieGrid');
 
       let debounceTimeout;
 
+      function formatHalfStarRating(voteAverage) {
+        if (voteAverage === null || voteAverage === undefined || isNaN(voteAverage)) {
+          return 'N/A';
+        }
+        // Convert TMDB 10-point scale to a 5-star scale
+        const ratingOutOfFive = voteAverage / 2;
+        const clamped = Math.max(0, Math.min(5, ratingOutOfFive));
+        const halfStarRounded = (Math.round(clamped * 2) / 2).toFixed(1);
+        return `${halfStarRounded} / 5`;
+      }
+
       async function fetchMovies(query = '') {
         try {
           const endpoint = `${SUPABASE_URL}/tmdb-movies?query=${encodeURIComponent(query)}`;
-          
+
           const response = await fetch(endpoint, {
             method: 'GET',
             headers: {
@@ -51,18 +62,20 @@
             }
           });
 
+          const data = await response.json();
+
           if (!response.ok) {
-            const errorPayload = await response.text();
-            throw new Error(`Server status ${response.status}: ${errorPayload}`);
+            throw new Error(data.error || `Server status ${response.status}`);
           }
 
-          const data = await response.json();
-          const movies = Array.isArray(data) ? data : (data.results || []);
+          if (data.error) {
+            throw new Error(data.error);
+          }
 
-          renderMovies(movies);
+          renderMovies(Array.isArray(data) ? data : []);
         } catch (err) {
-          console.error('Error fetching movies:', err);
-          movieGrid.innerHTML = '<p class="error">Unable to load movies at this time.</p>';
+          console.error('Error fetching movies:', err.message);
+          movieGrid.innerHTML = `<p class="error">Error loading movies: ${escapeHtml(err.message)}</p>`;
         }
       }
 
@@ -73,18 +86,20 @@
         }
 
         movieGrid.innerHTML = movies.map(movie => {
-          const posterUrl = movie.poster_path 
-            ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` 
+          const formattedRating = formatHalfStarRating(movie.vote_average);
+
+          // TMDB Image path resolution (w500 size for optimal grid quality)
+          const posterImage = movie.poster_path 
+            ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
             : 'https://via.placeholder.com/200x300?text=No+Poster';
 
-          const title = escapeHtml(movie.title || 'Untitled');
-          const rating = movie.vote_average ? (movie.vote_average / 2).toFixed(1) : 'N/A';
+          const title = escapeHtml(movie.title || movie.original_title || 'Untitled');
 
           return `
             <div class="card">
-              <img src="${posterUrl}" alt="${title}">
+              <img src="${posterImage}" alt="${title}">
               <h3>${title}</h3>
-              <p>Rating: ⭐ ${rating} / 5</p>
+              <p>Rating: ⭐ ${formattedRating}</p>
               <a href="review.html?id=${movie.id}&type=movie" class="btn-review">Reviews & Ratings</a>
             </div>
           `;
