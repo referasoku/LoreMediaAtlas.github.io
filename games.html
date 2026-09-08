@@ -80,11 +80,9 @@
         }
 
         gameGrid.innerHTML = games.map(game => {
-          // IGDB ratings are 0-100; divide by 20 to scale to 0-5
           const ratingOutOfFive = game.rating ? game.rating / 20 : null;
           const formattedRating = formatHalfStarRating(ratingOutOfFive);
 
-          // Handle nested cover object or fallback placeholder
           const coverImage = (game.cover && game.cover.url) 
             ? game.cover.url 
             : 'https://via.placeholder.com/200x300?text=No+Cover';
@@ -106,12 +104,11 @@
         return String(str)
           .replace(/&/g, '&amp;')
           .replace(/</g, '&lt;')
-          .replace(//>/g, '&gt;')
+          .replace(/>/g, '&gt;')
           .replace(/"/g, '&quot;')
           .replace(/'/g, '&#039;');
       }
 
-      // Input Listener with Debounce (300ms delay)
       searchInput.addEventListener('input', (e) => {
         clearTimeout(debounceTimeout);
         const query = e.target.value.trim();
@@ -121,7 +118,6 @@
         }, 300);
       });
 
-      // Fetch top-rated games when page loads
       document.addEventListener('DOMContentLoaded', () => {
         fetchGames('');
       });
