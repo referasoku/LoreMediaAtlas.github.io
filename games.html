@@ -22,69 +22,54 @@
 
     <main class="container">
       <h1>Game Catalog</h1>
-      <input type="text" id="gameSearch" class="search-input" placeholder="Search for a game...">
+      <input type="text" id="gameSearch" class="search-input" placeholder="search for a game...">
 
-      <p id="statusMessage" style="color: var(--accent-color); margin-top: 1rem;"></p>
-      
       <div id="gameGrid" class="card-grid">
         <!-- Search results will appear here -->
       </div>
     </main>
 
     <script>
-    // Get a free API key from https://rawg.io/apidocs
-    // If you intend on using this to make your own please get your own API Key
-      const RAWG_API_KEY = '5c9b18c14a3e4704bda05dfa828ccd86';
+      // Supabase Edge Function Configuration
+      const SUPABASE_URL = 'https://tpeqgjgeeyrepaijdcuj.supabase.co/functions/v1';
+      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwZXFnamdlZXlyZXBhaWpkY3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NzczMjMsImV4cCI6MjEwNDE1MzMyM30.YEAcpOlAiaFdYHniMZdzM684NYiF5fVPVXUaRGWraC4
+';
 
       const searchInput = document.getElementById('gameSearch');
       const gameGrid = document.getElementById('gameGrid');
-      const statusMessage = document.getElementById('statusMessage');
 
       searchInput.addEventListener('input', async (e) => {
         const query = e.target.value.trim();
-
-        if(query.length < 2) {
+        if (query.length < 2) {
           gameGrid.innerHTML = '';
-          statusMessage.textContent = '';
           return;
         }
 
-        statusMessage.textContent = 'Searching...';
-
         try {
-          const url = `https://api.rawg.io/api/games?key=${RAWG_API_KEY}&search=${encodeURIComponent(query)}&page_size=12`;
+          // Call your Supabase Edge Function for IGDB games
+          const response = await fetch(`${SUPABASE_URL}/igdb-games?query=${encodeURIComponent(query)}`, {
+            headers: {
+              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            }
+          });
 
-          const response = await fetch(url);
+          if (!response.ok) throw new Error(`Server error: ${response.status}`);
 
-          if(!response.ok) {
-            throw new Error(`API returned status ${response.status}`);
-          }
+          const games = await response.json();
 
-          const data = await response.json();
-
-          if (!data.results || data.results.length === 0) {
-            statusMessage.textContent = 'No games found.';
-            gameGrid.innerHTML = '';
-            return;
-          }
-
-          statusMessage.textContent = '';
-
-          gameGrid.innerHTML = data.results.map(game => `
-            <div class= 'card'>
-              <img src="${game.background_image ? game.background_image : 'https://via.placeholder.com/200x300'}" alt="${game.name}">
+          gameGrid.innerHTML = games.map(game => `
+            <div class="card">
+              <img src="${game.cover_url ? game.cover_url : 'https://via.placeholder.com/200x300'}" alt="${game.name}">
               <h3>${game.name}</h3>
-              <p>Rating: ⭐ ${game.rating ? game.rating : 'N/A'}</p>
+              <p>Rating: ⭐ ${game.rating ? (game.rating / 20).toFixed(1) : 'N/A'}</p>
               <a href="review.html?id=${game.id}&type=game" class="btn-review">Reviews & Ratings</a>
             </div>
           `).join('');
-
         } catch (err) {
-          console.error('Fetch error:', err);
-          statusMessage.textContent = 'Failed to load search results. Check your API key or connection.';
+          console.error('Error fetching games:', err);
+          gameGrid.innerHTML = '<p class="error">Unable to load games at this time.</p>';
         }
       });
     </script>
-    
   </body>
 </html>
