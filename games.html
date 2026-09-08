@@ -31,7 +31,7 @@
 
     <script>
       const SUPABASE_URL = 'https://tpeqgjgeeyrepaijdcuj.supabase.co/functions/v1';
-      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwZXFnamdlZXlyZXBhaWpkY3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NzczMjMsImV4cCI6MjEwNDE1MzMyM30.YEAcpOlAiaFdYHniMZdzM684NYiF5fVPVXUaRGWraC4';
+      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwZXFnamdlZXlyZXBhaWpkY3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NzczMjMsImV4cCI62E0NDE1MzMyM30.YEAcpOlAiaFdYHniMZdzM684NYiF5fVPVXUaRGWraC4';
 
       const searchInput = document.getElementById('gameSearch');
       const gameGrid = document.getElementById('gameGrid');
@@ -60,16 +60,20 @@
             }
           });
 
+          const data = await response.json();
+
           if (!response.ok) {
-            const errPayload = await response.text();
-            throw new Error(`Server error (${response.status}): ${errPayload}`);
+            throw new Error(data.error || `Server status ${response.status}`);
           }
 
-          const games = await response.json();
-          renderGames(games);
+          if (data.error) {
+            throw new Error(data.error);
+          }
+
+          renderGames(Array.isArray(data) ? data : []);
         } catch (err) {
-          console.error('Error fetching games:', err);
-          gameGrid.innerHTML = '<p class="error">Unable to load games at this time.</p>';
+          console.error('Error fetching games:', err.message);
+          gameGrid.innerHTML = `<p class="error">Error loading games: ${escapeHtml(err.message)}</p>`;
         }
       }
 
@@ -83,9 +87,13 @@
           const ratingOutOfFive = game.rating ? game.rating / 20 : null;
           const formattedRating = formatHalfStarRating(ratingOutOfFive);
 
-          const coverImage = (game.cover && game.cover.url) 
-            ? game.cover.url 
-            : 'https://via.placeholder.com/200x300?text=No+Cover';
+          let coverImage = 'https://via.placeholder.com/200x300?text=No+Cover';
+          if (game.cover && game.cover.url) {
+            coverImage = game.cover.url.startsWith('//') 
+              ? `https:${game.cover.url}` 
+              : game.cover.url;
+            coverImage = coverImage.replace('t_thumb', 't_cover_big');
+          }
 
           const title = escapeHtml(game.name || 'Untitled');
 
