@@ -22,53 +22,101 @@
 
     <main class="container">
       <h1>Movie Catalog</h1>
-      <input type="text" id="movieSearch" class="search-input" placeholder="search for a movie...">
+      <input type="text" id="movieSearch" class="search-input" placeholder="Search for a movie...">
 
       <div id="movieGrid" class="card-grid">
-        <!-- Search results will appear here -->
+        <p>Loading movies...</p>
       </div>
     </main>
 
     <script>
-      // Supabase Edge Function Configuration
       const SUPABASE_URL = 'https://tpeqgjgeeyrepaijdcuj.supabase.co/functions/v1';
       const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwZXFnamdlZXlyZXBhaWpkY3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NzczMjMsImV4cCI6MjEwNDE1MzMyM30.YEAcpOlAiaFdYHniMZdzM684NYiF5fVPVXUaRGWraC4';
 
       const searchInput = document.getElementById('movieSearch');
       const movieGrid = document.getElementById('movieGrid');
 
-     // Correct pattern used in movies.html / games.html
-searchInput.addEventListener('input', async (e) => {
-  const query = e.target.value.trim();
-  if (query.length < 2) {
-    movieGrid.innerHTML = '';
-    return;
-  }
+      // Debounce utility to reduce rate limits during typing
+      let debounceTimeout;
 
-  try {
-    const response = await fetch(`${SUPABASE_URL}/tmdb-movies?query=${encodeURIComponent(query)}`, {
-      headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
-    });
+      async function fetchMovies(query = '') {
+        try {
+          // Send both query param and headers required by Supabase
+          const endpoint = `${SUPABASE_URL}/tmdb-movies?query=${encodeURIComponent(query)}`;
+          
+          const response = await fetch(endpoint, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': SUPABASE_ANON_KEY,
+              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            }
+          });
 
-    if (!response.ok) throw new Error(`Server error: ${response.status}`);
+          if (!response.ok) {
+            const errorPayload = await response.text();
+            throw new Error(`Server status ${response.status}: ${errorPayload}`);
+          }
 
-    const data = await response.json();
-    const results = data.results || data;
+          const data = await response.json();
+          // Extract array depending on whether function wraps response in data or results
+          const movies = Array.isArray(data) ? data : (data.results || []);
 
-    // Standard string mapping without inline 'onclick' handlers
-    movieGrid.innerHTML = results.map(movie => `
-      <div class="card">
-        <img src="${movie.poster_path ? 'https://image.tmdb.org/t/p/w500' + movie.poster_path : 'https://via.placeholder.com/200x300'}" alt="${movie.title}">
-        <h3>${movie.title}</h3>
-        <p>Rating: ⭐ ${movie.vote_average ? (movie.vote_average / 2).toFixed(1) : 'N/A'}</p>
-        <a href="review.html?id=${movie.id}&type=movie" class="btn-review">Reviews & Ratings</a>
-      </div>
-    `).join('');
-  } catch (err) {
-    console.error('Error fetching movies:', err);
-    movieGrid.innerHTML = '<p class="error">Unable to load movies at this time.</p>';
-  }
-});
+          renderMovies(movies);
+        } catch (err) {
+          console.error('Error fetching movies:', err);
+          movieGrid.innerHTML = '<p class="error">Unable to load movies at this time.</p>';
+        }
+      }
+
+      function renderMovies(movies) {
+        if (!movies || movies.length === 0) {
+          movieGrid.innerHTML = '<p>No movies found matching your search.</p>';
+          return;
+        }
+
+        movieGrid.innerHTML = movies.map(movie => {
+          const posterUrl = movie.poster_path 
+            ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` 
+            : 'https://via.placeholder.com/200x300?text=No+Poster';
+
+          const title = escapeHtml(movie.title || 'Untitled');
+          const rating = movie.vote_average ? (movie.vote_average / 2).toFixed(1) : 'N/A';
+
+          return `
+            <div class="card">
+              <img src="${posterUrl}" alt="${title}">
+              <h3>${title}</h3>
+              <p>Rating: ⭐ ${rating} / 5</p>
+              <a href="review.html?id=${movie.id}&type=movie" class="btn-review">Reviews & Ratings</a>
+            </div>
+          `;
+        }).join('');
+      }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
+      // Input Listener with Debounce
+      searchInput.addEventListener('input', (e) => {
+        clearTimeout(debounceTimeout);
+        const query = e.target.value.trim();
+
+        debounceTimeout = setTimeout(() => {
+          fetchMovies(query);
+        }, 300);
+      });
+
+      // Fetch initial popular list on load
+      document.addEventListener('DOMContentLoaded', () => {
+        fetchMovies('');
+      });
     </script>
   </body>
 </html>
