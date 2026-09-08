@@ -21,19 +21,21 @@
     </header>
 
     <main class="container">
-      <!-- Dynamic Back Navigation Button -->
+      <!-- Back Navigation Button -->
       <div style="margin-bottom: 1.5rem;">
-        <button id="backBtn" class="btn" style="background-color: var(--card-bg); color: var(--text-color); border: 1px solid var(--border-color); padding: 0.5rem 1rem; cursor: pointer; border-radius: 6px;">
-          ← Back
-        </button>
+        <button id="backBtn" class="btn-back">← Back</button>
       </div>
 
+      <!-- Media Details Header Card -->
       <div id="mediaDetails" class="details-container">
-        <!-- Media info (poster, title, description) renders here -->
+        <!-- Renders poster, title, and overview dynamically -->
       </div>
 
+      <!-- Review Form Section -->
       <section class="review-section">
         <h3>Leave a Review</h3>
+        
+        <label style="font-weight: 500;">Select Rating:</label>
         
         <!-- Interactive Half-Star Component -->
         <div class="star-rating" id="starRating">
@@ -58,17 +60,18 @@
             <span class="star-half right" data-value="5.0"></span>
           </span>
         </div>
-        <p>Selected Rating: <span id="ratingValue">0.0</span> / 5</p>
+        <p class="rating-indicator">Selected Rating: <span id="ratingValue">0.0</span> / 5.0</p>
 
-        <textarea id="reviewText" placeholder="Write your thoughts..."></textarea>
-        <button id="submitReviewBtn" class="btn">Submit Review</button>
+        <textarea id="reviewText" placeholder="Write your thoughts on this title..."></textarea>
+        <button id="submitReviewBtn" class="btn-primary">Submit Review</button>
         <div id="statusMessage"></div>
       </section>
 
+      <!-- Community Reviews Display -->
       <section class="community-reviews">
         <h3>Community Reviews</h3>
         <div id="reviewsList">
-          <!-- Existing reviews render here -->
+          <p style="color: #94a3b8;">No community reviews posted yet.</p>
         </div>
       </section>
     </main>
@@ -78,10 +81,10 @@
       const SUPABASE_URL = 'https://tpeqgjgeeyrepaijdcuj.supabase.co/functions/v1';
       const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwZXFnamdlZXlyZXBhaWpkY3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NzczMjMsImV4cCI6MjEwNDE1MzMyM30.YEAcpOlAiaFdYHniMZdzM684NYiF5fVPVXUaRGWraC4';
 
-      // Parse URL Parameters (e.g., review.html?id=123&type=movie)
+      // Parse URL Parameters
       const urlParams = new URLSearchParams(window.location.search);
       const mediaId = urlParams.get('id');
-      const mediaType = urlParams.get('type'); // 'movie' or 'game'
+      const mediaType = urlParams.get('type');
 
       const backBtn = document.getElementById('backBtn');
       const mediaDetails = document.getElementById('mediaDetails');
@@ -94,7 +97,7 @@
       
       let selectedRating = 0;
 
-      // 1. Dynamic Back Button Logic
+      // 1. Back Navigation Logic
       backBtn.addEventListener('click', () => {
         if (document.referrer && document.referrer.includes(window.location.host)) {
           window.history.back();
@@ -103,7 +106,7 @@
         }
       });
 
-      // 2. Fetch Media Info from Edge Function
+      // 2. Fetch Media Info
       async function loadMediaDetails() {
         if (!mediaId || !mediaType) {
           mediaDetails.innerHTML = '<p class="error">Invalid media selection.</p>';
@@ -145,8 +148,8 @@
           : (media.cover?.url ? media.cover.url.replace('t_thumb', 't_cover_big') : 'https://via.placeholder.com/200x300?text=No+Poster');
 
         mediaDetails.innerHTML = `
-          <div class="details-card" style="display: flex; gap: 2rem; margin-bottom: 2rem;">
-            <img src="${poster}" alt="${title}" style="width: 200px; border-radius: 8px; object-fit: cover;">
+          <div class="details-card">
+            <img src="${poster}" alt="${title}">
             <div class="details-info">
               <h2>${title}</h2>
               <p><strong>Type:</strong> ${mediaType ? mediaType.toUpperCase() : ''}</p>
@@ -156,7 +159,7 @@
         `;
       }
 
-      // 4. Half-Star Rating Logic
+      // 4. Half-Star Rating System Logic
       function renderStars(rating) {
         stars.forEach((star, index) => {
           const starValue = index + 1;
@@ -191,7 +194,7 @@
         }
       });
 
-      // 5. Submit Review Event Handler
+      // 5. Submit Review
       submitBtn.addEventListener('click', async () => {
         const content = reviewText.value.trim();
 
@@ -246,7 +249,7 @@
           .replace(/'/g, '&#039;');
       }
 
-      // Initialize page
+      // Initialize
       loadMediaDetails();
     </script>
   </body>
