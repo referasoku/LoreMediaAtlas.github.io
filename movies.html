@@ -36,12 +36,10 @@
       const searchInput = document.getElementById('movieSearch');
       const movieGrid = document.getElementById('movieGrid');
 
-      // Debounce utility to reduce rate limits during typing
       let debounceTimeout;
 
       async function fetchMovies(query = '') {
         try {
-          // Send both query param and headers required by Supabase
           const endpoint = `${SUPABASE_URL}/tmdb-movies?query=${encodeURIComponent(query)}`;
           
           const response = await fetch(endpoint, {
@@ -59,7 +57,6 @@
           }
 
           const data = await response.json();
-          // Extract array depending on whether function wraps response in data or results
           const movies = Array.isArray(data) ? data : (data.results || []);
 
           renderMovies(movies);
@@ -103,7 +100,6 @@
           .replace(/'/g, '&#039;');
       }
 
-      // Input Listener with Debounce
       searchInput.addEventListener('input', (e) => {
         clearTimeout(debounceTimeout);
         const query = e.target.value.trim();
@@ -113,7 +109,6 @@
         }, 300);
       });
 
-      // Fetch initial popular list on load
       document.addEventListener('DOMContentLoaded', () => {
         fetchMovies('');
       });
