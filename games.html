@@ -37,38 +37,38 @@
       const searchInput = document.getElementById('gameSearch');
       const gameGrid = document.getElementById('gameGrid');
 
-      searchInput.addEventListener('input', async (e) => {
-        const query = e.target.value.trim();
-        if (query.length < 2) {
-          gameGrid.innerHTML = '';
-          return;
-        }
+      // Correct pattern used in movies.html / games.html
+searchInput.addEventListener('input', async (e) => {
+  const query = e.target.value.trim();
+  if (query.length < 2) {
+    movieGrid.innerHTML = '';
+    return;
+  }
 
-        try {
-          // Call your Supabase Edge Function for IGDB games
-          const response = await fetch(`${SUPABASE_URL}/igdb-games?query=${encodeURIComponent(query)}`, {
-            headers: {
-              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-            }
-          });
+  try {
+    const response = await fetch(`${SUPABASE_URL}/tmdb-movies?query=${encodeURIComponent(query)}`, {
+      headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+    });
 
-          if (!response.ok) throw new Error(`Server error: ${response.status}`);
+    if (!response.ok) throw new Error(`Server error: ${response.status}`);
 
-          const games = await response.json();
+    const data = await response.json();
+    const results = data.results || data;
 
-          gameGrid.innerHTML = games.map(game => `
-            <div class="card">
-              <img src="${game.cover_url ? game.cover_url : 'https://via.placeholder.com/200x300'}" alt="${game.name}">
-              <h3>${game.name}</h3>
-              <p>Rating: ⭐ ${game.rating ? (game.rating / 20).toFixed(1) : 'N/A'}</p>
-              <a href="review.html?id=${game.id}&type=game" class="btn-review">Reviews & Ratings</a>
-            </div>
-          `).join('');
-        } catch (err) {
-          console.error('Error fetching games:', err);
-          gameGrid.innerHTML = '<p class="error">Unable to load games at this time.</p>';
-        }
-      });
+    // Standard string mapping without inline 'onclick' handlers
+    movieGrid.innerHTML = results.map(movie => `
+      <div class="card">
+        <img src="${movie.poster_path ? 'https://image.tmdb.org/t/p/w500' + movie.poster_path : 'https://via.placeholder.com/200x300'}" alt="${movie.title}">
+        <h3>${movie.title}</h3>
+        <p>Rating: ⭐ ${movie.vote_average ? (movie.vote_average / 2).toFixed(1) : 'N/A'}</p>
+        <a href="review.html?id=${movie.id}&type=movie" class="btn-review">Reviews & Ratings</a>
+      </div>
+    `).join('');
+  } catch (err) {
+    console.error('Error fetching movies:', err);
+    movieGrid.innerHTML = '<p class="error">Unable to load movies at this time.</p>';
+  }
+});
     </script>
   </body>
 </html>
