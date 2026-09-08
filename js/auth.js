@@ -53,29 +53,34 @@ function dispatchAuthReadyEvent(user) {
 }
 
 /**
- * Updates header navigation with user info and logout button using addEventListener
+ * Updates header navigation with user info and logout button
  */
 function updateHeaderNav(username) {
   const nav = document.querySelector('header nav');
-  if (nav && !document.getElementById('logoutBtn')) {
-    const userBadge = document.createElement('span');
-    userBadge.style.cssText = 'color: var(--accent-color); font-weight: bold; margin-left: 1rem;';
-    userBadge.textContent = `@${username}`;
+  if (!nav) return;
 
+  // 1. Update existing "Account" link text
+  const accountLink = nav.querySelector('a[href="account.html"]');
+  if (accountLink) {
+    accountLink.textContent = `@${username}`;
+    accountLink.classList.add('user-logged-in');
+  }
+
+  // 2. Append Logout button if not already added
+  if (!document.getElementById('logoutBtn')) {
     const logoutBtn = document.createElement('a');
     logoutBtn.id = 'logoutBtn';
     logoutBtn.href = '#';
     logoutBtn.style.color = '#ef4444';
+    logoutBtn.style.marginLeft = '1.5rem';
     logoutBtn.textContent = 'Logout';
     
-    // Use addEventListener instead of inline .onclick for CSP compliance
     logoutBtn.addEventListener('click', async (e) => {
       e.preventDefault();
       await db.auth.signOut();
       window.location.href = 'login.html';
     });
 
-    nav.appendChild(userBadge);
     nav.appendChild(logoutBtn);
   }
 }
