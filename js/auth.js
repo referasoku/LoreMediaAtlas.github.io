@@ -1,14 +1,19 @@
-const SUPABASE_URL = 'https://tpeqgjgeeyrepaijdcuj.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwZXFnamdlZXlyZXBhaWpkY3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NzczMjMsImV4cCI6MjEwNDE1MzMyM30.YEAcpOlAiaFdYHniMZdzM684NYiF5fVPVXUaRGWraC4';
+// Safely attach configuration to window to prevent global constant redeclaration errors
+window.SUPABASE_URL = window.SUPABASE_URL || 'https://tpeqgjgeeyrepaijdcuj.supabase.co';
+window.SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwZXFnamdlZXlyZXBhaWpkY3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NzczMjMsImV4cCI6MjEwNDE1MzMyM30.YEAcpOlAiaFdYHniMZdzM684NYiF5fVPVXUaRGWraC4';
 
-const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: false
-  }
-});
+// Initialize the shared Supabase client instance
+if (!window.db && typeof supabase !== 'undefined') {
+  window.db = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: false
+    }
+  });
+}
 
+const db = window.db;
 let currentUserProfile = null;
 
 /**
@@ -16,6 +21,11 @@ let currentUserProfile = null;
  * Dispatches a custom event 'authReady' when profile load completes.
  */
 async function initAuth(forceRedirect = false) {
+  if (!db) {
+    console.error('Supabase client failed to initialize. Ensure Supabase JS library is loaded.');
+    return null;
+  }
+
   try {
     const { data: { session }, error } = await db.auth.getSession();
 
@@ -85,5 +95,9 @@ function updateHeaderNav(username) {
   }
 }
 
-// Automatically initialize auth on load (does NOT force redirect on open pages)
-initAuth(false);
+// Ensure the DOM is fully loaded before executing auth checks
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => initAuth(false));
+} else {
+  initAuth(false);
+}
