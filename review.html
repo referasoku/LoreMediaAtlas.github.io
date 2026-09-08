@@ -1,207 +1,161 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Review & Rating - LoreVault</title>
-  <link rel="stylesheet" href="css/style.css">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-</head>
-<body>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Review & Ratings - LoreVault</title>
+    <link rel="stylesheet" href="css/style.css">
+  </head>
+  <body>
 
-  <header>
-    <h2>LoreVault</h2>
-    <nav>
-      <a href="index.html">Home</a>
-      <a href="movies.html">Movies</a>
-      <a href="games.html">Games</a>
-      <a href="feed.html">Feed</a>
-      <a href="users.html">Users</a>
-      <a href="account.html">Account</a>
-    </nav>
-  </header>
+    <header>
+      <h2>LoreVault</h2>
+      <nav>
+        <a href="index.html">Home</a>
+        <a href="movies.html">Movies</a>
+        <a href="games.html">Games</a>
+        <a href="feed.html">Feed</a>
+        <a href="users.html">Users</a>
+        <a href="account.html">Account</a>
+      </nav>
+    </header>
 
-  <main class="container">
-    <!-- Dynamic Header Info (Image + Title) -->
-    <div id="itemDetail" class="detail-header">
-      <p id="loadingText">Loading details...</p>
-    </div>
-
-    <!-- Review Submission Form -->
-    <section class="review-form">
-      <h2>Leave a Review</h2>
-      <form id="reviewForm">
-
-        <div class="form-group">
-          <label>Star Rating</label>
-          <div class="star-rating">
-            <input type="radio" id="star5" name="rating" value="5" required/><label for="star5">★</label>
-            <input type="radio" id="star4" name="rating" value="4"/><label for="star4">★</label>
-            <input type="radio" id="star3" name="rating" value="3"/><label for="star3">★</label>
-            <input type="radio" id="star2" name="rating" value="2"/><label for="star2">★</label>
-            <input type="radio" id="star1" name="rating" value="1"/><label for="star1">★</label>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label for="comment">Comment</label>
-          <textarea id="comment" class="form-textarea" placeholder="What did you think?" required></textarea>
-        </div>
-
-        <button type="submit" class="btn-submit">Post Review</button>
-      </form>
-    </section>
-
-    <!-- Member Reviews List -->
-    <section>
-      <h2>Member Reviews</h2>
-      <div id="reviewsList">
-        <!-- Reviews loaded here dynamically -->
+    <main class="container">
+      <div id="mediaDetails" class="details-container">
+        <!-- Media info (poster, title, description) renders here -->
       </div>
-    </section>
-  </main>
 
-  <script>
-    // 1. Initialize Supabase Client
-    // Replace these values with your actual details from Supabase Dashboard -> Project Settings -> API
-    const SUPABASE_URL = 'https://tpeqgjgeeyrepaijdcuj.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwZXFnamdlZXlyZXBhaWpkY3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NzczMjMsImV4cCI6MjEwNDE1MzMyM30.YEAcpOlAiaFdYHniMZdzM684NYiF5fVPVXUaRGWraC4';
-    
-    const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    
-    // 2. Read URL Parameters (?id=123&type=movie)
-    const urlParams = new URLSearchParams(window.location.search);
-    const itemId = urlParams.get('id');
-    const itemType = urlParams.get('type'); // "movie" or "game"
+      <section class="review-section">
+        <h3>Leave a Review</h3>
+        
+        <!-- Interactive Half-Star Component -->
+        <div class="star-rating" id="starRating">
+          <span class="star" data-value="1">
+            <span class="star-half left" data-value="0.5"></span>
+            <span class="star-half right" data-value="1.0"></span>
+          </span>
+          <span class="star" data-value="2">
+            <span class="star-half left" data-value="1.5"></span>
+            <span class="star-half right" data-value="2.0"></span>
+          </span>
+          <span class="star" data-value="3">
+            <span class="star-half left" data-value="2.5"></span>
+            <span class="star-half right" data-value="3.0"></span>
+          </span>
+          <span class="star" data-value="4">
+            <span class="star-half left" data-value="3.5"></span>
+            <span class="star-half right" data-value="4.0"></span>
+          </span>
+          <span class="star" data-value="5">
+            <span class="star-half left" data-value="4.5"></span>
+            <span class="star-half right" data-value="5.0"></span>
+          </span>
+        </div>
+        <p>Selected Rating: <span id="ratingValue">0.0</span> / 5</p>
 
-    const TMDB_API_KEY = '564e6671b19d2797c76255a4aefc8ba6';
-    const RAWG_API_KEY = '5c9b18c14a3e4704bda05dfa828ccd86';
+        <textarea id="reviewText" placeholder="Write your thoughts..."></textarea>
+        <button id="submitReviewBtn" class="btn">Submit Review</button>
+      </section>
+    </main>
 
-    const itemDetail = document.getElementById('itemDetail');
-    const reviewForm = document.getElementById('reviewForm');
-    const reviewsList = document.getElementById('reviewsList');
-    const submitBtn = document.getElementById('submitBtn');
+    <script>
+      // Supabase Edge Function Configuration
+      const SUPABASE_URL = 'https://tpeqgjgeeyrepaijdcuj.supabase.co/functions/v1';
+      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwZXFnamdlZXlyZXBhaWpkY3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NzczMjMsImV4cCI6MjEwNDE1MzMyM30.YEAcpOlAiaFdYHniMZdzM684NYiF5fVPVXUaRGWraC4';
 
-    let currentItemTitle = '';
-    let currentItemImage = '';
+      // Parse URL Parameters (e.g., review.html?id=123&type=movie)
+      const urlParams = new URLSearchParams(window.location.search);
+      const mediaId = urlParams.get('id');
+      const mediaType = urlParams.get('type'); // 'movie' or 'game'
 
-    // 3. Fetch Item Information
-    async function loadItemDetails() {
-      if (!itemId || !itemType) {
-        itemDetail.innerHTML = '<p>No item selected.</p>';
-        return;
-      }
+      const mediaDetails = document.getElementById('mediaDetails');
+      const starContainer = document.getElementById('starRating');
+      const ratingDisplay = document.getElementById('ratingValue');
+      const stars = starContainer.querySelectorAll('.star');
+      let selectedRating = 0;
 
-      try {
-        if (itemType === 'movie') {
-          const res = await fetch(`https://api.themoviedb.org/3/movie/${itemId}?api_key=${TMDB_API_KEY}`);
-          const data = await res.json();
-          currentItemTitle = data.title;
-          currentItemImage = data.poster_path ? 'https://image.tmdb.org/t/p/w500' + data.poster_path : 'https://via.placeholder.com/200x300';
-          renderDetails(currentItemTitle, currentItemImage, data.overview);
-        } else if (itemType === 'game') {
-          const res = await fetch(`https://api.rawg.io/api/games/${itemId}?key=${RAWG_API_KEY}`);
-          const data = await res.json();
-          currentItemTitle = data.name;
-          currentItemImage = data.background_image || 'https://via.placeholder.com/200x300';
-          renderDetails(currentItemTitle, currentItemImage, data.description_raw || '');
+      // 1. Fetch Media Info from Edge Function
+      async function loadMediaDetails() {
+        if (!mediaId || !mediaType) {
+          mediaDetails.innerHTML = '<p class="error">Invalid media selection.</p>';
+          return;
         }
 
-        // Fetch existing reviews for this specific item
-        fetchDatabaseReviews();
-      } catch (err) {
-        console.error(err);
-        itemDetail.innerHTML = '<p>Error loading item details.</p>';
-      }
-    }
+        const endpoint = mediaType === 'movie' ? 'tmdb-movies' : 'igdb-games';
 
-    function renderDetails(title, image, description) {
-      itemDetail.innerHTML = `
-        <img src="${image}" alt="${title}" class="detail-poster">
-        <div class="detail-info">
-          <h1>${title}</h1>
-          <p>${description ? description.slice(0, 300) + '...' : 'No description available.'}</p>
-        </div>
-      `;
-    }
+        try {
+          const response = await fetch(`${SUPABASE_URL}/${endpoint}?id=${encodeURIComponent(mediaId)}`, {
+            headers: {
+              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            }
+          });
 
-   // 4. Fetch Reviews from Supabase
-    async function fetchDatabaseReviews() {
-      reviewsList.innerHTML = '<p>Loading reviews...</p>';
+          if (!response.ok) throw new Error(`Server error: ${response.status}`);
 
-      const { data, error } = await db
-        .from('reviews')
-        .select('*')
-        .eq('item_id', itemId)
-        .eq('item_type', itemType)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Database Error:', error);
-        reviewsList.innerHTML = '<p>Could not load reviews.</p>';
-        return;
+          const media = await response.json();
+          renderDetails(media);
+        } catch (err) {
+          console.error('Error loading media details:', err);
+          mediaDetails.innerHTML = '<p class="error">Unable to load details.</p>';
+        }
       }
 
-      if (!data || data.length === 0) {
-        reviewsList.innerHTML = '<p>No reviews yet. Be the first to leave one!</p>';
-        return;
-      }
+      // 2. Render Media Details Header
+      function renderDetails(media) {
+        const title = media.title || media.name;
+        const poster = media.poster_path 
+          ? `https://image.tmdb.org/t/p/w500${media.poster_path}` 
+          : (media.cover_url || 'https://via.placeholder.com/200x300');
+        const overview = media.overview || media.summary || 'No description available.';
 
-      reviewsList.innerHTML = data.map(r => `
-        <div class="review-card">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-            <span class="review-author">${r.username}</span>
-            <span style="color: #f59e0b;">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span>
+        mediaDetails.innerHTML = `
+          <div class="details-card">
+            <img src="${poster}" alt="${title}">
+            <div class="details-info">
+              <h2>${title}</h2>
+              <p>${overview}</p>
+            </div>
           </div>
-          <p>${r.comment}</p>
-          <small style="color: gray;">${new Date(r.created_at).toLocaleDateString()}</small>
-        </div>
-      `).join('');
-    }
-
-// 5. Submit New Review to Supabase
-    reviewForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      // Ensure user profile is loaded from js/auth.js
-      if (!currentUserProfile) {
-        alert('You must be logged in to post a review.');
-        return;
+        `;
       }
 
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Posting...';
+      // 3. Half-Star Rating Logic
+      function renderStars(rating) {
+        stars.forEach((star, index) => {
+          const starValue = index + 1;
+          star.classList.remove('full', 'half');
 
-      const rating = document.querySelector('input[name="rating"]:checked').value;
-      const comment = document.getElementById('comment').value.trim();
+          if (rating >= starValue) {
+            star.classList.add('full');
+          } else if (rating >= starValue - 0.5) {
+            star.classList.add('half');
+          }
+        });
+      }
 
-      const { error } = await db.from('reviews').insert([
-        {
-          item_id: String(itemId),
-          item_type: itemType,
-          item_title: currentItemTitle,
-          item_image: currentItemImage,
-          username: currentUserProfile.username, // Automatically attached from Supabase Auth!
-          rating: parseInt(rating),
-          comment: comment
+      starContainer.addEventListener('mousemove', (e) => {
+        if (e.target.classList.contains('star-half')) {
+          const hoverValue = parseFloat(e.target.dataset.value);
+          renderStars(hoverValue);
+          ratingDisplay.textContent = hoverValue.toFixed(1);
         }
-      ]);
+      });
 
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Post Review';
+      starContainer.addEventListener('mouseleave', () => {
+        renderStars(selectedRating);
+        ratingDisplay.textContent = selectedRating.toFixed(1);
+      });
 
-      if (error) {
-        console.error('Insert Error:', error);
-        alert('Failed to post review. Check your network or configuration.');
-        return;
-      }
+      starContainer.addEventListener('click', (e) => {
+        if (e.target.classList.contains('star-half')) {
+          selectedRating = parseFloat(e.target.dataset.value);
+          renderStars(selectedRating);
+          ratingDisplay.textContent = selectedRating.toFixed(1);
+        }
+      });
 
-      reviewForm.reset();
-      // Refresh the reviews list from Supabase
-      fetchDatabaseReviews();
-    });
-
-    loadItemDetails();
-  </script>
-</body>
+      // Load media data on page load
+      loadMediaDetails();
+    </script>
+  </body>
 </html>
