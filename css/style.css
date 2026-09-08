@@ -47,9 +47,10 @@ nav a:hover, nav a.active {
   box-sizing: border-box;
 }
 
+/* Fixed 4-Column Grid Layout */
 .card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 1.5rem;
   margin-top: 1.5rem;
 }
@@ -61,6 +62,9 @@ nav a:hover, nav a.active {
   padding: 1rem;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .card img { 
@@ -68,6 +72,35 @@ nav a:hover, nav a.active {
   border-radius: 6px;
   aspect-ratio: 2/3;
   object-fit: cover;
+}
+
+.card h3 {
+  font-size: 1rem;
+  margin: 0.75rem 0 0.25rem 0;
+  /* Truncate long movie/game titles to 2 lines so card heights stay uniform */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card p {
+  font-size: 0.9rem;
+  margin: 0.25rem 0;
+}
+
+/* Mobile responsive override so cards remain readable on small screens */
+@media (max-width: 768px) {
+  .card-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .card-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .search-input {
