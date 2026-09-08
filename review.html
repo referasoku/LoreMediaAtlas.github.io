@@ -55,11 +55,19 @@
 
         <textarea id="reviewText" placeholder="Write your thoughts..."></textarea>
         <button id="submitReviewBtn" class="btn">Submit Review</button>
+        <div id="statusMessage"></div>
+      </section>
+
+      <section class="community-reviews">
+        <h3>Community Reviews</h3>
+        <div id="reviewsList">
+          <!-- Existing reviews render here -->
+        </div>
       </section>
     </main>
 
     <script>
-      // Supabase Edge Function Configuration
+      // Supabase Configuration
       const SUPABASE_URL = 'https://tpeqgjgeeyrepaijdcuj.supabase.co/functions/v1';
       const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwZXFnamdlZXlyZXBhaWpkY3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NzczMjMsImV4cCI6MjEwNDE1MzMyM30.YEAcpOlAiaFdYHniMZdzM684NYiF5fVPVXUaRGWraC4';
 
@@ -71,7 +79,11 @@
       const mediaDetails = document.getElementById('mediaDetails');
       const starContainer = document.getElementById('starRating');
       const ratingDisplay = document.getElementById('ratingValue');
+      const submitBtn = document.getElementById('submitReviewBtn');
+      const reviewText = document.getElementById('reviewText');
+      const statusMessage = document.getElementById('statusMessage');
       const stars = starContainer.querySelectorAll('.star');
+      
       let selectedRating = 0;
 
       // 1. Fetch Media Info from Edge Function
@@ -154,7 +166,54 @@
         }
       });
 
-      // Load media data on page load
+      // 4. Safe Submit Review Event Handler
+      submitBtn.addEventListener('click', async () => {
+        const content = reviewText.value.trim();
+
+        if (selectedRating === 0) {
+          statusMessage.innerHTML = '<p class="error">Please select a star rating.</p>';
+          return;
+        }
+
+        if (!content) {
+          statusMessage.innerHTML = '<p class="error">Please write a review comment.</p>';
+          return;
+        }
+
+        statusMessage.innerHTML = '<p class="info">Submitting review...</p>';
+
+        try {
+          // Send review payload to Supabase database/edge endpoint
+          const response = await fetch(`https://tpeqgjgeeyrepaijdcuj.supabase.co/rest/v1/reviews`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+              'apikey': SUPABASE_ANON_KEY,
+              'Content-Type': 'application/json',
+              'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({
+              media_id: mediaId,
+              media_type: mediaType,
+              rating: selectedRating,
+              review_text: content
+            })
+          });
+
+          if (!response.ok) throw new Error('Failed to save review');
+
+          statusMessage.innerHTML = '<p class="success">Review submitted successfully!</p>';
+          reviewText.value = '';
+          selectedRating = 0;
+          renderStars(0);
+          ratingDisplay.textContent = '0.0';
+        } catch (err) {
+          console.error('Error submitting review:', err);
+          statusMessage.innerHTML = '<p class="error">Failed to submit review. Try again later.</p>';
+        }
+      });
+
+      // Initialize page
       loadMediaDetails();
     </script>
   </body>
