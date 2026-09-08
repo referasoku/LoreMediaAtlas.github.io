@@ -22,22 +22,22 @@
 
     <main class="container">
       <h1>Game Catalog</h1>
-      <input type="text" id="gameSearch" class="search-input" placeholder="search for a game...">
+      <input type="text" id="gameSearch" class="search-input" placeholder="Search for a game...">
 
       <div id="gameGrid" class="card-grid">
-        <!-- Search results will appear here -->
+        <p>Loading games...</p>
       </div>
     </main>
 
     <script>
-      // Supabase Edge Function Configuration
       const SUPABASE_URL = 'https://tpeqgjgeeyrepaijdcuj.supabase.co/functions/v1';
       const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwZXFnamdlZXlyZXBhaWpkY3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NzczMjMsImV4cCI6MjEwNDE1MzMyM30.YEAcpOlAiaFdYHniMZdzM684NYiF5fVPVXUaRGWraC4';
 
       const searchInput = document.getElementById('gameSearch');
       const gameGrid = document.getElementById('gameGrid');
 
-      // Helper function to format ratings to nearest half star
+      let debounceTimeout;
+
       function formatHalfStarRating(ratingOutOfFive) {
         if (ratingOutOfFive === null || ratingOutOfFive === undefined || isNaN(ratingOutOfFive)) {
           return 'N/A';
@@ -47,45 +47,83 @@
         return `${halfStarRounded} / 5`;
       }
 
-      // Safe event listener for input (No inline handlers)
-      searchInput.addEventListener('input', async (e) => {
-        const query = e.target.value.trim();
-        if (query.length < 2) {
-          gameGrid.innerHTML = '';
-          return;
-        }
-
+      async function fetchGames(query = '') {
         try {
-          // Route through Supabase Edge Function
-          const response = await fetch(`${SUPABASE_URL}/igdb-games?query=${encodeURIComponent(query)}`, {
+          const endpoint = `${SUPABASE_URL}/igdb-games?query=${encodeURIComponent(query)}`;
+
+          const response = await fetch(endpoint, {
+            method: 'GET',
             headers: {
+              'Content-Type': 'application/json',
+              'apikey': SUPABASE_ANON_KEY,
               'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
             }
           });
 
-          if (!response.ok) throw new Error(`Server error: ${response.status}`);
+          if (!response.ok) {
+            const errPayload = await response.text();
+            throw new Error(`Server error (${response.status}): ${errPayload}`);
+          }
 
           const games = await response.json();
-
-          gameGrid.innerHTML = games.map(game => {
-            // IGDB provides ratings on a 0-100 scale; divide by 20 for 0-5 scale
-            const ratingOutOfFive = game.rating ? game.rating / 20 : null;
-            const formattedRating = formatHalfStarRating(ratingOutOfFive);
-            const coverImage = game.cover_url ? game.cover_url : 'https://via.placeholder.com/200x300';
-
-            return `
-              <div class="card">
-                <img src="${coverImage}" alt="${game.name}">
-                <h3>${game.name}</h3>
-                <p>Rating: ⭐ ${formattedRating}</p>
-                <a href="review.html?id=${game.id}&type=game" class="btn-review">Reviews & Ratings</a>
-              </div>
-            `;
-          }).join('');
+          renderGames(games);
         } catch (err) {
           console.error('Error fetching games:', err);
           gameGrid.innerHTML = '<p class="error">Unable to load games at this time.</p>';
         }
+      }
+
+      function renderGames(games) {
+        if (!games || games.length === 0) {
+          gameGrid.innerHTML = '<p>No games found matching your search.</p>';
+          return;
+        }
+
+        gameGrid.innerHTML = games.map(game => {
+          // IGDB ratings are 0-100; divide by 20 to scale to 0-5
+          const ratingOutOfFive = game.rating ? game.rating / 20 : null;
+          const formattedRating = formatHalfStarRating(ratingOutOfFive);
+
+          // Handle nested cover object or fallback placeholder
+          const coverImage = (game.cover && game.cover.url) 
+            ? game.cover.url 
+            : 'https://via.placeholder.com/200x300?text=No+Cover';
+
+          const title = escapeHtml(game.name || 'Untitled');
+
+          return `
+            <div class="card">
+              <img src="${coverImage}" alt="${title}">
+              <h3>${title}</h3>
+              <p>Rating: ⭐ ${formattedRating}</p>
+              <a href="review.html?id=${game.id}&type=game" class="btn-review">Reviews & Ratings</a>
+            </div>
+          `;
+        }).join('');
+      }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(//>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
+      // Input Listener with Debounce (300ms delay)
+      searchInput.addEventListener('input', (e) => {
+        clearTimeout(debounceTimeout);
+        const query = e.target.value.trim();
+
+        debounceTimeout = setTimeout(() => {
+          fetchGames(query);
+        }, 300);
+      });
+
+      // Fetch top-rated games when page loads
+      document.addEventListener('DOMContentLoaded', () => {
+        fetchGames('');
       });
     </script>
   </body>
