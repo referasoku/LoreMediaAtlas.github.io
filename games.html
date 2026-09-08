@@ -31,44 +31,62 @@
 
     <script>
       // Supabase Edge Function Configuration
-      const SUPABASE_URL = 'https://tpeqgjgeeyrepaijdcuj.supabase.co/functions/v1';
-      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwZXFnamdlZXlyZXBhaWpkY3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NzczMjMsImV4cCI6MjEwNDE1MzMyM30.YEAcpOlAiaFdYHniMZdzM684NYiF5fVPVXUaRGWraC4';
+      const SUPABASE_URL = 'https://YOUR_PROJECT_REF.supabase.co/functions/v1';
+      const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
 
       const searchInput = document.getElementById('gameSearch');
       const gameGrid = document.getElementById('gameGrid');
 
-      // Correct pattern used in movies.html / games.html
-searchInput.addEventListener('input', async (e) => {
-  const query = e.target.value.trim();
-  if (query.length < 2) {
-    movieGrid.innerHTML = '';
-    return;
-  }
+      // Helper function to format ratings to nearest half star
+      function formatHalfStarRating(ratingOutOfFive) {
+        if (ratingOutOfFive === null || ratingOutOfFive === undefined || isNaN(ratingOutOfFive)) {
+          return 'N/A';
+        }
+        const clamped = Math.max(0, Math.min(5, ratingOutOfFive));
+        const halfStarRounded = (Math.round(clamped * 2) / 2).toFixed(1);
+        return `${halfStarRounded} / 5`;
+      }
 
-  try {
-    const response = await fetch(`${SUPABASE_URL}/tmdb-movies?query=${encodeURIComponent(query)}`, {
-      headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
-    });
+      // Safe event listener for input (No inline handlers)
+      searchInput.addEventListener('input', async (e) => {
+        const query = e.target.value.trim();
+        if (query.length < 2) {
+          gameGrid.innerHTML = '';
+          return;
+        }
 
-    if (!response.ok) throw new Error(`Server error: ${response.status}`);
+        try {
+          // Route through Supabase Edge Function
+          const response = await fetch(`${SUPABASE_URL}/igdb-games?query=${encodeURIComponent(query)}`, {
+            headers: {
+              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            }
+          });
 
-    const data = await response.json();
-    const results = data.results || data;
+          if (!response.ok) throw new Error(`Server error: ${response.status}`);
 
-    // Standard string mapping without inline 'onclick' handlers
-    movieGrid.innerHTML = results.map(movie => `
-      <div class="card">
-        <img src="${movie.poster_path ? 'https://image.tmdb.org/t/p/w500' + movie.poster_path : 'https://via.placeholder.com/200x300'}" alt="${movie.title}">
-        <h3>${movie.title}</h3>
-        <p>Rating: ⭐ ${movie.vote_average ? (movie.vote_average / 2).toFixed(1) : 'N/A'}</p>
-        <a href="review.html?id=${movie.id}&type=movie" class="btn-review">Reviews & Ratings</a>
-      </div>
-    `).join('');
-  } catch (err) {
-    console.error('Error fetching movies:', err);
-    movieGrid.innerHTML = '<p class="error">Unable to load movies at this time.</p>';
-  }
-});
+          const games = await response.json();
+
+          gameGrid.innerHTML = games.map(game => {
+            // IGDB provides ratings on a 0-100 scale; divide by 20 for 0-5 scale
+            const ratingOutOfFive = game.rating ? game.rating / 20 : null;
+            const formattedRating = formatHalfStarRating(ratingOutOfFive);
+            const coverImage = game.cover_url ? game.cover_url : 'https://via.placeholder.com/200x300';
+
+            return `
+              <div class="card">
+                <img src="${coverImage}" alt="${game.name}">
+                <h3>${game.name}</h3>
+                <p>Rating: ⭐ ${formattedRating}</p>
+                <a href="review.html?id=${game.id}&type=game" class="btn-review">Reviews & Ratings</a>
+              </div>
+            `;
+          }).join('');
+        } catch (err) {
+          console.error('Error fetching games:', err);
+          gameGrid.innerHTML = '<p class="error">Unable to load games at this time.</p>';
+        }
+      });
     </script>
   </body>
 </html>
