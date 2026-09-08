@@ -28,10 +28,10 @@
     <h1 id="profileHeader">My Profile</h1>
     <p style="margin-bottom: 2rem;">Manage and view submitted reviews.</p>
 
-    <!-- Tab Selection -->
+    <!-- Tab Selection without inline onclick attributes -->
     <div class="tab-container" style="margin-bottom: 1.5rem;">
-      <button class="tab-btn active" id="movieTabBtn" onclick="switchTab('movie')">Movie Reviews</button>
-      <button class="tab-btn" id="gameTabBtn" onclick="switchTab('game')">Game Reviews</button>
+      <button class="tab-btn active" id="movieTabBtn">Movie Reviews</button>
+      <button class="tab-btn" id="gameTabBtn">Game Reviews</button>
     </div>
 
     <!-- Review Stream -->
@@ -43,12 +43,79 @@
   <script>
     let activeTab = 'movie';
 
-    // Check if viewing another user's profile via query parameter (?user=Username)
+    // Parse URL Parameters (?user=Username)
     const urlParams = new URLSearchParams(window.location.search);
     const viewedUser = urlParams.get('user');
 
+    // DOM Elements
+    const movieTabBtn = document.getElementById('movieTabBtn');
+    const gameTabBtn = document.getElementById('gameTabBtn');
+    const userReviewsList = document.getElementById('userReviewsList');
+    const profileHeader = document.getElementById('profileHeader');
+
+    // Safe Event Listeners replacing inline onclicks
+    movieTabBtn.addEventListener('click', () => switchTab('movie'));
+    gameTabBtn.addEventListener('click', () => switchTab('game'));
+
+    function switchTab(type) {
+      activeTab = type;
+      movieTabBtn.classList.toggle('active', type === 'movie');
+      gameTabBtn.classList.toggle('active', type === 'game');
+
+      const targetUsername = viewedUser || (typeof currentUserProfile !== 'undefined' && currentUserProfile ? currentUserProfile.username : null);
+      if (targetUsername) {
+        fetchUserReviews(targetUsername);
+      }
+    }
+
+    // Helper function to render numerical ratings (including half-stars)
+    function renderRatingStars(rating) {
+      if (!rating && rating !== 0) return 'N/A';
+      const num = parseFloat(rating);
+      return `⭐ ${num.toFixed(1)} / 5`;
+    }
+
+    async function fetchUserReviews(username) {
+      userReviewsList.innerHTML = '<p>Loading reviews...</p>';
+
+      try {
+        const { data: reviews, error } = await db
+          .from('reviews')
+          .select('*')
+          .eq('username', username)
+          .eq('item_type', activeTab)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        if (!reviews || reviews.length === 0) {
+          userReviewsList.innerHTML = `<p>No ${activeTab} reviews posted yet by @${username}.</p>`;
+          return;
+        }
+
+        userReviewsList.innerHTML = reviews.map(r => `
+          <div class="review-card" style="display: flex; gap: 1rem; align-items: flex-start; margin-bottom: 1rem; background: var(--card-bg, #1e293b); padding: 1rem; border-radius: 8px;">
+            ${r.item_image ? `<img src="${r.item_image}" alt="${r.item_title}" style="width: 70px; height: 100px; object-fit: cover; border-radius: 6px;">` : ''}
+            <div style="flex: 1;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+                <h3 style="margin: 0;">${r.item_title || 'Untitled'}</h3>
+                <span style="color: #f59e0b; font-weight: bold;">${renderRatingStars(r.rating)}</span>
+              </div>
+              <p style="margin: 0.5rem 0;">${r.comment || r.review_text || ''}</p>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <small style="color: gray;">Posted ${new Date(r.created_at).toLocaleDateString()}</small>
+                <a href="review.html?id=${r.item_id}&type=${r.item_type}" style="color: var(--accent-color); text-decoration: none; font-size: 0.9rem;">View Item Page →</a>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        console.error('Fetch error:', err);
+        userReviewsList.innerHTML = '<p class="error">Error loading reviews.</p>';
+      }
+    }
+
     async function initAccountPage() {
-      // Determine target username: URL parameter OR currently logged-in user profile
       let targetUsername = viewedUser;
 
       if (!targetUsername && typeof currentUserProfile !== 'undefined' && currentUserProfile) {
@@ -56,67 +123,17 @@
       }
 
       if (targetUsername) {
-        document.getElementById('profileHeader').textContent = `@${targetUsername}'s Profile`;
+        profileHeader.textContent = `@${targetUsername}'s Profile`;
         fetchUserReviews(targetUsername);
       } else {
-        document.getElementById('userReviewsList').innerHTML = '<p>User profile not found.</p>';
+        userReviewsList.innerHTML = '<p>User profile not found. Please log in.</p>';
       }
     }
 
-    function switchTab(type) {
-      activeTab = type;
-      document.getElementById('movieTabBtn').classList.toggle('active', type === 'movie');
-      document.getElementById('gameTabBtn').classList.toggle('active', type === 'game');
-
-      const targetUsername = viewedUser || (currentUserProfile ? currentUserProfile.username : null);
-      if (targetUsername) {
-        fetchUserReviews(targetUsername);
-      }
-    }
-
-    async function fetchUserReviews(username) {
-      const container = document.getElementById('userReviewsList');
-      container.innerHTML = '<p>Loading reviews...</p>';
-
-      const { data: reviews, error } = await db
-        .from('reviews')
-        .select('*')
-        .eq('username', username)
-        .eq('item_type', activeTab)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Fetch error:', error);
-        container.innerHTML = '<p>Error loading reviews.</p>';
-        return;
-      }
-
-      if (!reviews || reviews.length === 0) {
-        container.innerHTML = `<p>No ${activeTab} reviews posted yet by @${username}.</p>`;
-        return;
-      }
-
-      container.innerHTML = reviews.map(r => `
-        <div class="review-card" style="display: flex; gap: 1rem; align-items: flex-start; margin-bottom: 1rem; background: var(--card-bg, #1e293b); padding: 1rem; border-radius: 8px;">
-          ${r.item_image ? `<img src="${r.item_image}" alt="${r.item_title}" style="width: 70px; height: 100px; object-fit: cover; border-radius: 6px;">` : ''}
-          <div style="flex: 1;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
-              <h3 style="margin: 0;">${r.item_title}</h3>
-              <span style="color: #f59e0b;">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span>
-            </div>
-            <p style="margin: 0.5rem 0;">${r.comment}</p>
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <small style="color: gray;">Posted ${new Date(r.created_at).toLocaleDateString()}</small>
-              <a href="review.html?id=${r.item_id}&type=${r.item_type}" style="color: var(--accent-color); text-decoration: none; font-size: 0.9rem;">View Item Page →</a>
-            </div>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    // Wait for auth session initialization from js/auth.js
+    // Safely initialize when DOM and auth state are ready
     window.addEventListener('DOMContentLoaded', () => {
-      setTimeout(initAccountPage, 300);
+      // Small deferred execution to ensure js/auth.js variables populate
+      setTimeout(initAccountPage, 100);
     });
   </script>
 </body>
