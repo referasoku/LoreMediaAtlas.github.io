@@ -16,9 +16,10 @@
     <h1 style="text-align: center;">LoreVault</h1>
     <p style="text-align: center; margin-bottom: 2rem;">Sign in or create an account to access reviews.</p>
 
+    <!-- Navigation Tabs without inline onclick handlers -->
     <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
-      <button id="showLoginBtn" class="tab-btn active" style="flex: 1;" onclick="toggleAuth('login')">Sign In</button>
-      <button id="showSignupBtn" class="tab-btn" style="flex: 1;" onclick="toggleAuth('signup')">Sign Up</button>
+      <button id="showLoginBtn" class="tab-btn active" style="flex: 1;">Sign In</button>
+      <button id="showSignupBtn" class="tab-btn" style="flex: 1;">Sign Up</button>
     </div>
 
     <!-- Login Form -->
@@ -63,20 +64,31 @@
     const filter = new Filter();
     const reservedNames = ['admin', 'administrator', 'mod', 'moderator', 'lorevault', 'system', 'support', 'root'];
 
+    // DOM Elements
+    const showLoginBtn = document.getElementById('showLoginBtn');
+    const showSignupBtn = document.getElementById('showSignupBtn');
+    const loginForm = document.getElementById('loginForm');
+    const signupForm = document.getElementById('signupForm');
+    const errorDisplay = document.getElementById('authError');
+
     let mode = 'login';
 
-    function toggleAuth(selectedMode) {
+    // Clean Toggle Handler without inline HTML execution
+    function switchMode(selectedMode) {
       mode = selectedMode;
-      document.getElementById('loginForm').style.display = mode === 'login' ? 'block' : 'none';
-      document.getElementById('signupForm').style.display = mode === 'signup' ? 'block' : 'none';
-      document.getElementById('showLoginBtn').classList.toggle('active', mode === 'login');
-      document.getElementById('showSignupBtn').classList.toggle('active', mode === 'signup');
-      document.getElementById('authError').textContent = '';
+      loginForm.style.display = mode === 'login' ? 'block' : 'none';
+      signupForm.style.display = mode === 'signup' ? 'block' : 'none';
+      showLoginBtn.classList.toggle('active', mode === 'login');
+      showSignupBtn.classList.toggle('active', mode === 'signup');
+      errorDisplay.textContent = '';
     }
+
+    // Attach Event Listeners Safely
+    showLoginBtn.addEventListener('click', () => switchMode('login'));
+    showSignupBtn.addEventListener('click', () => switchMode('signup'));
 
     // Front-End Username Validation Function
     function isValidUsername(username) {
-      const errorDisplay = document.getElementById('authError');
       errorDisplay.textContent = '';
 
       if (username.length < 3 || username.length > 20) {
@@ -104,15 +116,10 @@
     }
 
     // Handle Login
-    document.getElementById('loginForm').addEventListener('submit', async (e) => {
-      // 1. Immediately halt default form submission for mobile WebKit
+    loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
+      errorDisplay.textContent = '';
 
-      // 2. Clear previous error messages
-      const errorElement = document.getElementById('authError');
-      if (errorElement) errorElement.textContent = '';
-
-      // 3. Force lowercasing and trim whitespace for mobile keyboards
       const emailInput = document.getElementById('loginEmail');
       const passwordInput = document.getElementById('loginPassword');
 
@@ -120,40 +127,34 @@
       const password = passwordInput ? passwordInput.value : '';
 
       if (!email || !password) {
-        if (errorElement) errorElement.textContent = 'Please enter both email and password.';
+        errorDisplay.textContent = 'Please enter both email and password.';
         return;
       }
 
       try {
-        // 4. Perform Supabase authentication
         const { data, error } = await db.auth.signInWithPassword({ email, password });
 
         if (error) {
-          if (errorElement) errorElement.textContent = error.message;
+          errorDisplay.textContent = error.message;
           return;
         }
 
-        // 5. Short pause to ensure session token is written to Safari's localStorage before redirect
-        setTimeout(() => {
-          window.location.replace('index.html');
-        }, 100);
+        // Direct browser location swap
+        window.location.replace('index.html');
 
       } catch (err) {
         console.error('Login error:', err);
-        if (errorElement) {
-          errorElement.textContent = 'An unexpected error occurred. Please try again.';
-        }
+        errorDisplay.textContent = 'An unexpected error occurred. Please try again.';
       }
     });
-    
+
     // Handle Sign Up
-    document.getElementById('signupForm').addEventListener('submit', async (e) => {
+    signupForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const username = document.getElementById('signupUsername').value.trim();
       const email = document.getElementById('signupEmail').value;
       const password = document.getElementById('signupPassword').value;
 
-      // Validate username rules before proceeding to Supabase
       if (!isValidUsername(username)) {
         return;
       }
@@ -165,10 +166,10 @@
       });
 
       if (error) {
-        document.getElementById('authError').textContent = error.message;
+        errorDisplay.textContent = error.message;
       } else {
         alert('Account created! Logging you in...');
-        window.location.href = 'index.html';
+        window.location.replace('index.html');
       }
     });
   </script>
