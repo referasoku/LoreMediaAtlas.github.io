@@ -171,8 +171,14 @@
   }
 
   function isOwner() {
-    return !viewedUser || (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.username === viewedUser);
-  }
+  // If ?user= parameter is absent, assume it's the logged-in user's profile
+  if (!viewedUser) return true;
+  
+  // If viewing a specific user, check if their username matches the logged-in user
+  return typeof currentUserProfile !== 'undefined' && 
+         currentUserProfile !== null && 
+         currentUserProfile.username === viewedUser;
+}
 
   function getTargetUsername() {
     if (viewedUser) return viewedUser;
