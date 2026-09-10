@@ -17,6 +17,76 @@ const db = window.db;
 let currentUserProfile = null;
 
 /**
+ * Checks if a username is already taken in the database (case-insensitive)
+ */
+async function isUsernameTaken(username) {
+  const normalizedUsername = username.trim().toLowerCase();
+
+  const { data, error } = await db
+    .from('profiles')
+    .select('username')
+    .ilike('username', normalizedUsername)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error checking username availability:', error);
+    return false;
+  }
+
+  return !!data;
+}
+
+/**
+ * Handles user sign-up with duplicate username checking and profile creation
+ */
+async function signUpUser(email, password, username) {
+  const normalizedUsername = username.trim().toLowerCase();
+
+  if (!normalizedUsername) {
+    throw new Error('Username cannot be empty.');
+  }
+
+  // 1. Pre-check: Stop if username already exists
+  const taken = await isUsernameTaken(normalizedUsername);
+  if (taken) {
+    throw new Error('That username is already taken. Please choose another.');
+  }
+
+  // 2. Sign up user via Supabase Auth
+  const { data: authData, error: authError } = await db.auth.signUp({
+    email,
+    password,
+    options: {
+      data: { username: normalizedUsername }
+    }
+  });
+
+  if (authError) throw authError;
+
+  // 3. Create initial row in 'profiles' table with error handling for unique constraint
+  if (authData.user) {
+    const { error: profileError } = await db
+      .from('profiles')
+      .insert([
+        {
+          id: authData.user.id,
+          username: normalizedUsername
+        }
+      ]);
+
+    if (profileError) {
+      // Catch Postgres unique violation error code 23505
+      if (profileError.code === '23505') {
+        throw new Error('That username is already taken. Please choose another.');
+      }
+      throw profileError;
+    }
+  }
+
+  return authData;
+}
+
+/**
  * Checks authentication status without forcing a redirect.
  * Dispatches a custom event 'authReady' when profile load completes.
  */
@@ -84,7 +154,7 @@ function updateHeaderNav(username) {
     logoutBtn.style.color = '#ef4444';
     logoutBtn.style.marginLeft = '1.5rem';
     logoutBtn.textContent = 'Logout';
-    
+
     logoutBtn.addEventListener('click', async (e) => {
       e.preventDefault();
       await db.auth.signOut();
