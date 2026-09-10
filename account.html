@@ -244,43 +244,52 @@
     }
 
     favSearchInput.addEventListener('input', async (e) => {
-      const query = e.target.value.trim();
-      if (query.length < 2) {
-        searchResults.innerHTML = '<p style="color: #94a3b8; font-size: 0.9rem;">Type at least 2 letters to search.</p>';
-        return;
-      }
+  const query = e.target.value.trim();
+  if (query.length < 2) {
+    searchResults.innerHTML = '<p style="color: #94a3b8; font-size: 0.9rem;">Type at least 2 letters to search.</p>';
+    return;
+  }
 
-      searchResults.innerHTML = '<p style="color: #94a3b8; font-size: 0.9rem;">Searching...</p>';
+  searchResults.innerHTML = '<p style="color: #94a3b8; font-size: 0.9rem;">Searching...</p>';
 
-      try {
-        const table = activeTab === 'movie' ? 'movies' : 'games';
-        const { data, error } = await db
-          .from(table)
-          .select('id, title, poster_path, image_url')
-          .ilike('title', `%${query}%`)
-          .limit(6);
+  try {
+    const table = activeTab === 'movie' ? 'movies' : 'games';
+    
+    // Select all potential image and title columns dynamically
+    const { data, error } = await db
+      .from(table)
+      .select('*')
+      .ilike('title', `%${query}%`)
+      .limit(6);
 
-        if (error) throw error;
+    if (error) {
+      console.error('Database query error:', error);
+      throw error;
+    }
 
-        if (!data || data.length === 0) {
-          searchResults.innerHTML = '<p style="color: #94a3b8; font-size: 0.9rem;">No results found.</p>';
-          return;
-        }
+    if (!data || data.length === 0) {
+      searchResults.innerHTML = '<p style="color: #94a3b8; font-size: 0.9rem;">No results found.</p>';
+      return;
+    }
 
-        searchResults.innerHTML = data.map(item => {
-          const img = item.poster_path || item.image_url || 'https://via.placeholder.com/100x150';
-          return `
-            <div onclick="selectFavorite('${escapeHtml(item.title)}', '${escapeHtml(img)}')" style="display: flex; gap: 0.75rem; align-items: center; padding: 0.5rem; background: rgba(255,255,255,0.05); border-radius: 6px; cursor: pointer;">
-              <img src="${escapeHtml(img)}" alt="${escapeHtml(item.title)}" style="width: 40px; height: 55px; object-fit: cover; border-radius: 4px;">
-              <strong style="color: #f8fafc; font-size: 0.9rem;">${escapeHtml(item.title)}</strong>
-            </div>
-          `;
-        }).join('');
-      } catch (err) {
-        console.error('Search error:', err);
-        searchResults.innerHTML = '<p style="color: #ef4444; font-size: 0.9rem;">Failed to fetch results.</p>';
-      }
-    });
+    searchResults.innerHTML = data.map(item => {
+      // Safely fall back to whichever image/poster column exists in your schema
+      const img = item.image_url || item.poster_path || item.poster || item.cover_url || 'https://via.placeholder.com/100x150';
+      const title = item.title || item.name || 'Untitled';
+
+      return `
+        <div onclick="selectFavorite('${escapeHtml(title)}', '${escapeHtml(img)}')" 
+             style="display: flex; gap: 0.75rem; align-items: center; padding: 0.5rem; background: rgba(255,255,255,0.05); border-radius: 6px; cursor: pointer;">
+          <img src="${escapeHtml(img)}" alt="${escapeHtml(title)}" style="width: 40px; height: 55px; object-fit: cover; border-radius: 4px;">
+          <strong style="color: #f8fafc; font-size: 0.9rem;">${escapeHtml(title)}</strong>
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    console.error('Search error details:', err);
+    searchResults.innerHTML = `<p style="color: #ef4444; font-size: 0.9rem;">Search failed: ${escapeHtml(err.message)}</p>`;
+  }
+});
 
     async function selectFavorite(title, imageUrl) {
       if (selectedSlotIndex === null) return;
