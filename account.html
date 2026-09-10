@@ -86,6 +86,10 @@
     const urlParams = new URLSearchParams(window.location.search);
     const viewedUser = urlParams.get('user');
 
+    //Supabase Params
+    const SUPABASE_URL = 'https://tpeqgjgeeyrepaijdcuj.supabase.co/functions/v1';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwZXFnamdlZXlyZXBhaWpkY3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NzczMjMsImV4cCI6MjEwNDE1MzMyM30.YEAcpOlAiaFdYHniMZdzM684NYiF5fVPVXUaRGWraC4';
+
     // DOM Elements
     const movieTabBtn = document.getElementById('movieTabBtn');
     const gameTabBtn = document.getElementById('gameTabBtn');
@@ -243,8 +247,10 @@
       favModal.style.display = 'flex';
     }
 
-    favSearchInput.addEventListener('input', async (e) => {
+   favSearchInput.addEventListener('input', (e) => {
+  clearTimeout(debounceTimeout);
   const query = e.target.value.trim();
+
   if (query.length < 2) {
     searchResults.innerHTML = '<p style="color: #94a3b8; font-size: 0.9rem;">Type at least 2 letters to search.</p>';
     return;
@@ -252,44 +258,73 @@
 
   searchResults.innerHTML = '<p style="color: #94a3b8; font-size: 0.9rem;">Searching...</p>';
 
-  try {
-    const table = activeTab === 'movie' ? 'movies' : 'games';
-    
-    // Select all potential image and title columns dynamically
-    const { data, error } = await db
-      .from(table)
-      .select('*')
-      .ilike('title', `%${query}%`)
-      .limit(6);
+  debounceTimeout = setTimeout(async () => {
+    try {
+      // Determine the correct edge function endpoint based on activeTab ('movie' or 'game')
+      const endpointName = activeTab === 'movie' ? 'tmdb-movies' : 'igdb-games';
+      const endpoint = `${SUPABASE_URL}/${endpointName}?query=${encodeURIComponent(query)}`;
 
-    if (error) {
-      console.error('Database query error:', error);
-      throw error;
-    }
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+        }
+      });
 
-    if (!data || data.length === 0) {
-      searchResults.innerHTML = '<p style="color: #94a3b8; font-size: 0.9rem;">No results found.</p>';
-      return;
-    }
+      const data = await response.json();
 
-    searchResults.innerHTML = data.map(item => {
-      // Safely fall back to whichever image/poster column exists in your schema
-      const img = item.image_url || item.poster_path || item.poster || item.cover_url || 'https://via.placeholder.com/100x150';
-      const title = item.title || item.name || 'Untitled';
+      if (!response.ok || data.error) {
+        throw new Error(data.error || `Server status ${response.status}`);
+      }
 
-      return `
-        <div onclick="selectFavorite('${escapeHtml(title)}', '${escapeHtml(img)}')" 
-             style="display: flex; gap: 0.75rem; align-items: center; padding: 0.5rem; background: rgba(255,255,255,0.05); border-radius: 6px; cursor: pointer;">
-          <img src="${escapeHtml(img)}" alt="${escapeHtml(title)}" style="width: 40px; height: 55px; object-fit: cover; border-radius: 4px;">
-          <strong style="color: #f8fafc; font-size: 0.9rem;">${escapeHtml(title)}</strong>
+      const items = Array.isArray(data) ? data : [];
+
+      if (items.length === 0) {
+        searchResults.innerHTML = '<p style="color: #94a3b8; font-size: 0.9rem;">No results found.</p>';
+        return;
+      }
+
+      // Map API results to normalized objects for movies vs games
+      const mappedResults = items.slice(0, 6).map(item => {
+        if (activeTab === 'movie') {
+          return {
+            title: item.title || item.original_title || 'Untitled',
+            image_url: item.poster_path 
+              ? `https://image.tmdb.org/t/p/w200${item.poster_path}` 
+              : 'https://via.placeholder.com/100x150?text=No+Poster'
+          };
+        } else {
+          let coverImage = 'https://via.placeholder.com/100x150?text=No+Cover';
+          if (item.cover && item.cover.url) {
+            coverImage = item.cover.url.startsWith('//') 
+              ? `https:${item.cover.url}` 
+              : item.cover.url;
+            coverImage = coverImage.replace('t_thumb', 't_cover_big');
+          }
+          return {
+            title: item.name || 'Untitled',
+            image_url: coverImage
+          };
+        }
+      });
+
+      searchResults.innerHTML = mappedResults.map(item => `
+        <div onclick="selectFavorite('${escapeHtml(item.title)}', '${escapeHtml(item.image_url)}')" 
+             style="display: flex; gap: 0.75rem; align-items: center; padding: 0.5rem; background: rgba(255,255,255,0.05); border-radius: 6px; cursor: pointer; margin-bottom: 0.5rem;">
+          <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.title)}" style="width: 40px; height: 55px; object-fit: cover; border-radius: 4px;">
+          <strong style="color: #f8fafc; font-size: 0.9rem;">${escapeHtml(item.title)}</strong>
         </div>
-      `;
-    }).join('');
-  } catch (err) {
-    console.error('Search error details:', err);
-    searchResults.innerHTML = `<p style="color: #ef4444; font-size: 0.9rem;">Search failed: ${escapeHtml(err.message)}</p>`;
-  }
+      `).join('');
+
+    } catch (err) {
+      console.error('Search error:', err);
+      searchResults.innerHTML = `<p style="color: #ef4444; font-size: 0.9rem;">Search failed: ${escapeHtml(err.message)}</p>`;
+    }
+  }, 300);
 });
+
 
     async function selectFavorite(title, imageUrl) {
       if (selectedSlotIndex === null) return;
