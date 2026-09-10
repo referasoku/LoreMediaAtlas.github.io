@@ -108,26 +108,6 @@
         }).join('');
       }
 
-        movieGrid.innerHTML = movies.map(movie => {
-          const formattedRating = formatHalfStarRating(movie.vote_average);
-
-          const posterImage = movie.poster_path 
-            ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
-            : 'https://via.placeholder.com/200x300?text=No+Poster';
-
-          const title = escapeHtml(movie.title || movie.original_title || 'Untitled');
-
-          return `
-            <div class="card">
-              <img src="${posterImage}" alt="${title}">
-              <h3>${title}</h3>
-              <p>Rating: ⭐ ${formattedRating}</p>
-              <a href="review.html?id=${movie.id}&type=movie" class="btn-review">Reviews & Ratings</a>
-            </div>
-          `;
-        }).join('');
-      }
-
       function escapeHtml(str) {
         return String(str)
           .replace(/&/g, '&amp;')
