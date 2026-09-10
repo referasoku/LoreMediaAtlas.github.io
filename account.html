@@ -76,397 +76,389 @@
     </div>
   </div>
 
-  <script>
-    let activeTab = 'movie';
-    let isInitialized = false;
-    let selectedSlotIndex = null;
-    let favoritesCache = { movie: [null, null, null, null, null], game: [null, null, null, null, null] };
+ <script>
+  // Top-Level State & Variables (Declare all let/const here first)
+  let activeTab = 'movie';
+  let isInitialized = false;
+  let selectedSlotIndex = null;
+  let favoritesCache = { movie: [null, null, null, null, null], game: [null, null, null, null, null] };
+  let debounceTimeout; // <-- Declared at top to prevent ReferenceError
 
-    // Parse URL Parameters (?user=Username)
-    const urlParams = new URLSearchParams(window.location.search);
-    const viewedUser = urlParams.get('user');
+  // Parse URL Parameters (?user=Username)
+  const urlParams = new URLSearchParams(window.location.search);
+  const viewedUser = urlParams.get('user');
 
-    //Supabase Params
-    const SUPABASE_URL = 'https://tpeqgjgeeyrepaijdcuj.supabase.co/functions/v1';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwZXFnamdlZXlyZXBhaWpkY3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NzczMjMsImV4cCI6MjEwNDE1MzMyM30.YEAcpOlAiaFdYHniMZdzM684NYiF5fVPVXUaRGWraC4';
+  // Supabase Configuration
+  const SUPABASE_URL = 'https://tpeqgjgeeyrepaijdcuj.supabase.co/functions/v1';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwZXFnamdlZXlyZXBhaWpkY3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NzczMjMsImV4cCI6MjEwNDE1MzMyM30.YEAcpOlAiaFdYHniMZdzM684NYiF5fVPVXUaRGWraC4';
 
-    let debounceTimeout;
-    
-    // DOM Elements
-    const movieTabBtn = document.getElementById('movieTabBtn');
-    const gameTabBtn = document.getElementById('gameTabBtn');
-    const userReviewsList = document.getElementById('userReviewsList');
-    const profileHeader = document.getElementById('profileHeader');
-    const avatarContainer = document.getElementById('avatarContainer');
-    const avatarFileInput = document.getElementById('avatarFileInput');
-    const favoritesTitle = document.getElementById('favoritesTitle');
-    const favoritesBar = document.getElementById('favoritesBar');
-    const favModal = document.getElementById('favModal');
-    const closeModalBtn = document.getElementById('closeModalBtn');
-    const favSearchInput = document.getElementById('favSearchInput');
-    const searchResults = document.getElementById('searchResults');
+  // DOM Elements
+  const movieTabBtn = document.getElementById('movieTabBtn');
+  const gameTabBtn = document.getElementById('gameTabBtn');
+  const userReviewsList = document.getElementById('userReviewsList');
+  const profileHeader = document.getElementById('profileHeader');
+  const avatarContainer = document.getElementById('avatarContainer');
+  const avatarFileInput = document.getElementById('avatarFileInput');
+  const favoritesTitle = document.getElementById('favoritesTitle');
+  const favoritesBar = document.getElementById('favoritesBar');
+  const favModal = document.getElementById('favModal');
+  const closeModalBtn = document.getElementById('closeModalBtn');
+  const favSearchInput = document.getElementById('favSearchInput');
+  const searchResults = document.getElementById('searchResults');
 
-    // Avatar Upload Listeners
-    avatarContainer.addEventListener('click', () => {
-      if (isOwner()) {
-        avatarFileInput.click();
-      }
-    });
-
-    avatarFileInput.addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const username = getTargetUsername();
-      if (!username) return;
-
-      avatarContainer.textContent = '...';
-
-      try {
-        const fileExt = file.name.split('.').pop();
-        const filePath = `${username}-${Date.now()}.${fileExt}`;
-
-        // Upload to Supabase Storage bucket 'avatars'
-        const { error: uploadError } = await db.storage
-          .from('avatars')
-          .upload(filePath, file, { upsert: true });
-
-        if (uploadError) throw uploadError;
-
-        // Get public URL
-        const { data: { publicUrl } } = db.storage
-          .from('avatars')
-          .getPublicUrl(filePath);
-
-        // Update avatar URL in 'profiles' table
-        const { error: updateError } = await db
-          .from('profiles')
-          .update({ avatar_url: publicUrl })
-          .eq('username', username);
-
-        if (updateError) throw updateError;
-
-        avatarContainer.innerHTML = `<img src="${escapeHtml(publicUrl)}" alt="${escapeHtml(username)}" style="width: 100%; height: 100%; object-fit: cover;">`;
-      } catch (err) {
-        console.error('Avatar upload failed:', err);
-        alert('Failed to upload avatar image: ' + err.message);
-        updateProfileAvatar(username);
-      }
-    });
-
-    // Tab Listeners
-    movieTabBtn.addEventListener('click', () => switchTab('movie'));
-    gameTabBtn.addEventListener('click', () => switchTab('game'));
-    closeModalBtn.addEventListener('click', () => favModal.style.display = 'none');
-
-    function switchTab(type) {
-      activeTab = type;
-      movieTabBtn.classList.toggle('active', type === 'movie');
-      gameTabBtn.classList.toggle('active', type === 'game');
-
-      favoritesTitle.textContent = `Top 5 Favorite ${type === 'movie' ? 'Movies' : 'Games'}`;
-      renderFavoritesBar();
-
-      const targetUsername = getTargetUsername();
-      if (targetUsername) {
-        fetchUserReviews(targetUsername);
-      }
+  // Avatar Upload Listeners
+  avatarContainer.addEventListener('click', () => {
+    if (isOwner()) {
+      avatarFileInput.click();
     }
+  });
 
-    function isOwner() {
-      return !viewedUser || (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.username === viewedUser);
-    }
+  avatarFileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-    function getTargetUsername() {
-      if (viewedUser) return viewedUser;
-      if (typeof currentUserProfile !== 'undefined' && currentUserProfile) {
-        return currentUserProfile.username;
-      }
-      return null;
-    }
+    const username = getTargetUsername();
+    if (!username) return;
 
-    function renderRatingStars(rating) {
-      if (rating === null || rating === undefined) return 'N/A';
-      const num = parseFloat(rating);
-      return `⭐ ${num.toFixed(1)} / 5`;
-    }
+    avatarContainer.textContent = '...';
 
-    async function loadFavorites(username) {
-  try {
-    const { data, error } = await db
-      .from('profiles')
-      .select('favorite_movies, favorite_games')
-      .eq('username', username)
-      .maybeSingle();
-
-    if (error) throw error;
-
-    if (data) {
-      // Ensure array length always normalizes to 5 items
-      const rawMovies = Array.isArray(data.favorite_movies) ? data.favorite_movies : [];
-      const rawGames = Array.isArray(data.favorite_games) ? data.favorite_games : [];
-
-      favoritesCache.movie = Array.from({ length: 5 }, (_, i) => rawMovies[i] || null);
-      favoritesCache.game = Array.from({ length: 5 }, (_, i) => rawGames[i] || null);
-    }
-  } catch (err) {
-    console.error('Error fetching favorites:', err);
-  }
-  renderFavoritesBar();
-}
-
-    function renderFavoritesBar() {
-      const list = favoritesCache[activeTab] || [null, null, null, null, null];
-      const canEdit = isOwner();
-
-      favoritesBar.innerHTML = list.map((item, index) => {
-        if (item) {
-          return `
-            <div style="position: relative; aspect-ratio: 2/3; background: #0f172a; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color, #334155);">
-              <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.title)}" style="width: 100%; height: 100%; object-fit: cover;">
-              <div style="position: absolute; bottom: 0; inset-x: 0; background: linear-gradient(transparent, rgba(0,0,0,0.85)); padding: 0.4rem; font-size: 0.75rem; text-align: center; color: #fff; font-weight: bold; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
-                ${escapeHtml(item.title)}
-              </div>
-              ${canEdit ? `<button onclick="removeFavorite(${index})" style="position: absolute; top: 4px; right: 4px; background: rgba(239,68,68,0.85); color: #fff; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center;">✕</button>` : ''}
-            </div>
-          `;
-        } else {
-          return `
-            <div onclick="${canEdit ? `openSearchModal(${index})` : ''}" style="aspect-ratio: 2/3; background: rgba(255,255,255,0.03); border: 2px dashed var(--border-color, #334155); border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: ${canEdit ? 'pointer' : 'default'}; color: #64748b; text-align: center; padding: 0.5rem;">
-              <span style="font-size: 1.25rem;">${canEdit ? '+' : '#'}</span>
-              <span style="font-size: 0.75rem; margin-top: 0.25rem;">${canEdit ? 'Add' : 'Empty'}</span>
-            </div>
-          `;
-        }
-      }).join('');
-    }
-
-    function openSearchModal(index) {
-      selectedSlotIndex = index;
-      favSearchInput.value = '';
-      searchResults.innerHTML = '<p style="color: #94a3b8; font-size: 0.9rem;">Type above to search media.</p>';
-      document.getElementById('modalTitle').textContent = `Select Favorite ${activeTab === 'movie' ? 'Movie' : 'Game'}`;
-      favModal.style.display = 'flex';
-    }
-
-   favSearchInput.addEventListener('input', (e) => {
-  clearTimeout(debounceTimeout);
-  const query = e.target.value.trim();
-
-  if (query.length < 2) {
-    searchResults.innerHTML = '<p style="color: #94a3b8; font-size: 0.9rem;">Type at least 2 letters to search.</p>';
-    return;
-  }
-
-  searchResults.innerHTML = '<p style="color: #94a3b8; font-size: 0.9rem;">Searching...</p>';
-
-  debounceTimeout = setTimeout(async () => {
     try {
-      // Determine the correct edge function endpoint based on activeTab ('movie' or 'game')
-      const endpointName = activeTab === 'movie' ? 'tmdb-movies' : 'igdb-games';
-      const endpoint = `${SUPABASE_URL}/${endpointName}?query=${encodeURIComponent(query)}`;
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${username}-${Date.now()}.${fileExt}`;
 
-      const response = await fetch(endpoint, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-        }
-      });
+      const { error: uploadError } = await db.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true });
 
-      const data = await response.json();
+      if (uploadError) throw uploadError;
 
-      if (!response.ok || data.error) {
-        throw new Error(data.error || `Server status ${response.status}`);
-      }
+      const { data: { publicUrl } } = db.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
 
-      const items = Array.isArray(data) ? data : [];
+      const { error: updateError } = await db
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('username', username);
 
-      if (items.length === 0) {
-        searchResults.innerHTML = '<p style="color: #94a3b8; font-size: 0.9rem;">No results found.</p>';
-        return;
-      }
+      if (updateError) throw updateError;
 
-      // Map API results to normalized objects for movies vs games
-      const mappedResults = items.slice(0, 6).map(item => {
-        if (activeTab === 'movie') {
-          return {
-            title: item.title || item.original_title || 'Untitled',
-            image_url: item.poster_path 
-              ? `https://image.tmdb.org/t/p/w200${item.poster_path}` 
-              : 'https://via.placeholder.com/100x150?text=No+Poster'
-          };
-        } else {
-          let coverImage = 'https://via.placeholder.com/100x150?text=No+Cover';
-          if (item.cover && item.cover.url) {
-            coverImage = item.cover.url.startsWith('//') 
-              ? `https:${item.cover.url}` 
-              : item.cover.url;
-            coverImage = coverImage.replace('t_thumb', 't_cover_big');
-          }
-          return {
-            title: item.name || 'Untitled',
-            image_url: coverImage
-          };
-        }
-      });
-
-      searchResults.innerHTML = mappedResults.map(item => `
-        <div onclick="selectFavorite('${escapeHtml(item.title)}', '${escapeHtml(item.image_url)}')" 
-             style="display: flex; gap: 0.75rem; align-items: center; padding: 0.5rem; background: rgba(255,255,255,0.05); border-radius: 6px; cursor: pointer; margin-bottom: 0.5rem;">
-          <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.title)}" style="width: 40px; height: 55px; object-fit: cover; border-radius: 4px;">
-          <strong style="color: #f8fafc; font-size: 0.9rem;">${escapeHtml(item.title)}</strong>
-        </div>
-      `).join('');
-
+      avatarContainer.innerHTML = `<img src="${escapeHtml(publicUrl)}" alt="${escapeHtml(username)}" style="width: 100%; height: 100%; object-fit: cover;">`;
     } catch (err) {
-      console.error('Search error:', err);
-      searchResults.innerHTML = `<p style="color: #ef4444; font-size: 0.9rem;">Search failed: ${escapeHtml(err.message)}</p>`;
+      console.error('Avatar upload failed:', err);
+      alert('Failed to upload avatar image: ' + err.message);
+      updateProfileAvatar(username);
     }
-  }, 300);
-});
+  });
 
+  // Tab & Modal Listeners
+  movieTabBtn.addEventListener('click', () => switchTab('movie'));
+  gameTabBtn.addEventListener('click', () => switchTab('game'));
+  closeModalBtn.addEventListener('click', () => favModal.style.display = 'none');
 
-    async function selectFavorite(title, imageUrl) {
-      if (selectedSlotIndex === null) return;
+  function switchTab(type) {
+    activeTab = type;
+    movieTabBtn.classList.toggle('active', type === 'movie');
+    gameTabBtn.classList.toggle('active', type === 'game');
 
-      favoritesCache[activeTab][selectedSlotIndex] = { title, image_url: imageUrl };
-      favModal.style.display = 'none';
-      renderFavoritesBar();
-      await syncFavoritesToDB();
+    favoritesTitle.textContent = `Top 5 Favorite ${type === 'movie' ? 'Movies' : 'Games'}`;
+    renderFavoritesBar();
+
+    const targetUsername = getTargetUsername();
+    if (targetUsername) {
+      fetchUserReviews(targetUsername);
     }
+  }
 
-    async function removeFavorite(index) {
-      favoritesCache[activeTab][index] = null;
-      renderFavoritesBar();
-      await syncFavoritesToDB();
+  function isOwner() {
+    return !viewedUser || (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.username === viewedUser);
+  }
+
+  function getTargetUsername() {
+    if (viewedUser) return viewedUser;
+    if (typeof currentUserProfile !== 'undefined' && currentUserProfile) {
+      return currentUserProfile.username;
     }
+    return null;
+  }
 
-    async function syncFavoritesToDB() {
-      const username = getTargetUsername();
-      if (!username) return;
+  function renderRatingStars(rating) {
+    if (rating === null || rating === undefined) return 'N/A';
+    const num = parseFloat(rating);
+    return `⭐ ${num.toFixed(1)} / 5`;
+  }
 
-      try {
-        const updatePayload = activeTab === 'movie' 
-          ? { favorite_movies: favoritesCache.movie }
-          : { favorite_games: favoritesCache.game };
+  async function loadFavorites(username) {
+    try {
+      const { data, error } = await db
+        .from('profiles')
+        .select('favorite_movies, favorite_games')
+        .eq('username', username)
+        .maybeSingle();
 
-        await db.from('profiles').update(updatePayload).eq('username', username);
-      } catch (err) {
-        console.error('Error saving favorites:', err);
+      if (error) throw error;
+
+      if (data) {
+        const rawMovies = Array.isArray(data.favorite_movies) ? data.favorite_movies : [];
+        const rawGames = Array.isArray(data.favorite_games) ? data.favorite_games : [];
+
+        favoritesCache.movie = Array.from({ length: 5 }, (_, i) => rawMovies[i] || null);
+        favoritesCache.game = Array.from({ length: 5 }, (_, i) => rawGames[i] || null);
       }
+    } catch (err) {
+      console.error('Error fetching favorites:', err);
     }
+    renderFavoritesBar();
+  }
 
-    async function updateProfileAvatar(username) {
-      try {
-        const { data: profile } = await db
-          .from('profiles')
-          .select('avatar_url')
-          .eq('username', username)
-          .maybeSingle();
+  function renderFavoritesBar() {
+    const list = favoritesCache[activeTab] || [null, null, null, null, null];
+    const canEdit = isOwner();
 
-        if (profile && profile.avatar_url) {
-          avatarContainer.innerHTML = `<img src="${escapeHtml(profile.avatar_url)}" alt="${escapeHtml(username)}" style="width: 100%; height: 100%; object-fit: cover;">`;
-        } else {
-          avatarContainer.textContent = username.charAt(0).toUpperCase();
-        }
-      } catch (err) {
-        console.error('Avatar load error:', err);
-        avatarContainer.textContent = username.charAt(0).toUpperCase();
-      }
-    }
-
-    async function fetchUserReviews(username) {
-      userReviewsList.innerHTML = '<p>Loading reviews...</p>';
-
-      try {
-        const { data: reviews, error } = await db
-          .from('reviews')
-          .select('*')
-          .eq('username', username)
-          .eq('item_type', activeTab)
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        if (!reviews || reviews.length === 0) {
-          userReviewsList.innerHTML = `<p>No ${activeTab} reviews posted yet by @${escapeHtml(username)}.</p>`;
-          return;
-        }
-
-        userReviewsList.innerHTML = reviews.map(r => `
-          <div class="review-card" style="display: flex; gap: 1rem; align-items: flex-start; margin-bottom: 1rem; background: var(--card-bg, #1e293b); padding: 1rem; border-radius: 8px;">
-            ${r.item_image ? `<img src="${escapeHtml(r.item_image)}" alt="${escapeHtml(r.item_title || '')}" style="width: 70px; height: 100px; object-fit: cover; border-radius: 6px;">` : ''}
-            <div style="flex: 1;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
-                <h3 style="margin: 0;">${escapeHtml(r.item_title || 'Untitled')}</h3>
-                <span style="color: #f59e0b; font-weight: bold;">${renderRatingStars(r.rating)}</span>
-              </div>
-              <p style="margin: 0.5rem 0;">${escapeHtml(r.comment || r.review_text || '')}</p>
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <small style="color: gray;">Posted ${new Date(r.created_at).toLocaleDateString()}</small>
-                <a href="review.html?id=${encodeURIComponent(r.item_id)}&type=${encodeURIComponent(r.item_type)}" style="color: var(--accent-color); text-decoration: none; font-size: 0.9rem;">View Item Page →</a>
-              </div>
+    favoritesBar.innerHTML = list.map((item, index) => {
+      if (item) {
+        return `
+          <div style="position: relative; aspect-ratio: 2/3; background: #0f172a; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color, #334155);">
+            <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.title)}" style="width: 100%; height: 100%; object-fit: cover;">
+            <div style="position: absolute; bottom: 0; inset-x: 0; background: linear-gradient(transparent, rgba(0,0,0,0.85)); padding: 0.4rem; font-size: 0.75rem; text-align: center; color: #fff; font-weight: bold; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
+              ${escapeHtml(item.title)}
             </div>
+            ${canEdit ? `<button onclick="removeFavorite(${index})" style="position: absolute; top: 4px; right: 4px; background: rgba(239,68,68,0.85); color: #fff; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center;">✕</button>` : ''}
           </div>
-        `).join('');
-      } catch (err) {
-        console.error('Fetch error:', err);
-        userReviewsList.innerHTML = '<p class="error">Error loading reviews.</p>';
-      }
-    }
-
-    function escapeHtml(str) {
-      if (!str) return '';
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
-
-    async function initAccountPage() {
-      if (isInitialized) return;
-      
-      const targetUsername = getTargetUsername();
-
-      if (targetUsername) {
-        isInitialized = true;
-        profileHeader.textContent = `@${targetUsername}'s Profile`;
-        updateProfileAvatar(targetUsername);
-        await loadFavorites(targetUsername);
-        fetchUserReviews(targetUsername);
-        
-        // Hide the login nav button if user is already logged in
-        const loginNavBtn = document.getElementById('loginNavBtn');
-        if (loginNavBtn && typeof currentUserProfile !== 'undefined' && currentUserProfile) {
-          loginNavBtn.style.display = 'none';
-        }
+        `;
       } else {
-        // Render a logged-out state with a direct button to login.html
-        userReviewsList.innerHTML = `
-          <div style="text-align: center; padding: 3rem 1rem; background: var(--card-bg, #1e293b); border-radius: 12px; margin-top: 1rem;">
-            <h2>Not Logged In</h2>
-            <p style="color: #94a3b8; margin-bottom: 1.5rem;">Please log in to view your profile, write reviews, and manage your favorites.</p>
-            <a href="login.html" style="display: inline-block; padding: 0.75rem 1.5rem; background: var(--accent-color, #3b82f6); color: white; border-radius: 8px; text-decoration: none; font-weight: bold;">
-              Go to Login Page →
-            </a>
+        return `
+          <div onclick="${canEdit ? `openSearchModal(${index})` : ''}" style="aspect-ratio: 2/3; background: rgba(255,255,255,0.03); border: 2px dashed var(--border-color, #334155); border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: ${canEdit ? 'pointer' : 'default'}; color: #64748b; text-align: center; padding: 0.5rem;">
+            <span style="font-size: 1.25rem;">${canEdit ? '+' : '#'}</span>
+            <span style="font-size: 0.75rem; margin-top: 0.25rem;">${canEdit ? 'Add' : 'Empty'}</span>
           </div>
         `;
       }
+    }).join('');
+  }
+
+  function openSearchModal(index) {
+    selectedSlotIndex = index;
+    favSearchInput.value = '';
+    searchResults.innerHTML = '<p style="color: #94a3b8; font-size: 0.9rem;">Type above to search media.</p>';
+    document.getElementById('modalTitle').textContent = `Select Favorite ${activeTab === 'movie' ? 'Movie' : 'Game'}`;
+    favModal.style.display = 'flex';
+  }
+
+  // Favorite Search Input Handler
+  favSearchInput.addEventListener('input', (e) => {
+    clearTimeout(debounceTimeout);
+    const query = e.target.value.trim();
+
+    if (query.length < 2) {
+      searchResults.innerHTML = '<p style="color: #94a3b8; font-size: 0.9rem;">Type at least 2 letters to search.</p>';
+      return;
     }
 
-    window.addEventListener('authReady', () => {
-      initAccountPage();
-    });
+    searchResults.innerHTML = '<p style="color: #94a3b8; font-size: 0.9rem;">Searching...</p>';
 
-    document.addEventListener('DOMContentLoaded', () => {
-      if (viewedUser || (typeof currentUserProfile !== 'undefined' && currentUserProfile)) {
-        initAccountPage();
+    debounceTimeout = setTimeout(async () => {
+      try {
+        const endpointName = activeTab === 'movie' ? 'tmdb-movies' : 'igdb-games';
+        const endpoint = `${SUPABASE_URL}/${endpointName}?query=${encodeURIComponent(query)}`;
+
+        const response = await fetch(endpoint, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          }
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || data.error) {
+          throw new Error(data.error || `Server status ${response.status}`);
+        }
+
+        const items = Array.isArray(data) ? data : [];
+
+        if (items.length === 0) {
+          searchResults.innerHTML = '<p style="color: #94a3b8; font-size: 0.9rem;">No results found.</p>';
+          return;
+        }
+
+        const mappedResults = items.slice(0, 6).map(item => {
+          if (activeTab === 'movie') {
+            return {
+              title: item.title || item.original_title || 'Untitled',
+              image_url: item.poster_path 
+                ? `https://image.tmdb.org/t/p/w200${item.poster_path}` 
+                : 'https://via.placeholder.com/100x150?text=No+Poster'
+            };
+          } else {
+            let coverImage = 'https://via.placeholder.com/100x150?text=No+Cover';
+            if (item.cover && item.cover.url) {
+              coverImage = item.cover.url.startsWith('//') 
+                ? `https:${item.cover.url}` 
+                : item.cover.url;
+              coverImage = coverImage.replace('t_thumb', 't_cover_big');
+            }
+            return {
+              title: item.name || 'Untitled',
+              image_url: coverImage
+            };
+          }
+        });
+
+        searchResults.innerHTML = mappedResults.map(item => `
+          <div onclick="selectFavorite('${escapeHtml(item.title)}', '${escapeHtml(item.image_url)}')" 
+               style="display: flex; gap: 0.75rem; align-items: center; padding: 0.5rem; background: rgba(255,255,255,0.05); border-radius: 6px; cursor: pointer; margin-bottom: 0.5rem;">
+            <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.title)}" style="width: 40px; height: 55px; object-fit: cover; border-radius: 4px;">
+            <strong style="color: #f8fafc; font-size: 0.9rem;">${escapeHtml(item.title)}</strong>
+          </div>
+        `).join('');
+
+      } catch (err) {
+        console.error('Search error:', err);
+        searchResults.innerHTML = `<p style="color: #ef4444; font-size: 0.9rem;">Search failed: ${escapeHtml(err.message)}</p>`;
       }
-    });
-  </script>
+    }, 300);
+  });
+
+  async function selectFavorite(title, imageUrl) {
+    if (selectedSlotIndex === null) return;
+
+    favoritesCache[activeTab][selectedSlotIndex] = { title, image_url: imageUrl };
+    favModal.style.display = 'none';
+    renderFavoritesBar();
+    await syncFavoritesToDB();
+  }
+
+  async function removeFavorite(index) {
+    favoritesCache[activeTab][index] = null;
+    renderFavoritesBar();
+    await syncFavoritesToDB();
+  }
+
+  async function syncFavoritesToDB() {
+    const username = getTargetUsername();
+    if (!username) return;
+
+    try {
+      const updatePayload = activeTab === 'movie' 
+        ? { favorite_movies: favoritesCache.movie }
+        : { favorite_games: favoritesCache.game };
+
+      await db.from('profiles').update(updatePayload).eq('username', username);
+    } catch (err) {
+      console.error('Error saving favorites:', err);
+    }
+  }
+
+  async function updateProfileAvatar(username) {
+    try {
+      const { data: profile } = await db
+        .from('profiles')
+        .select('avatar_url')
+        .eq('username', username)
+        .maybeSingle();
+
+      if (profile && profile.avatar_url) {
+        avatarContainer.innerHTML = `<img src="${escapeHtml(profile.avatar_url)}" alt="${escapeHtml(username)}" style="width: 100%; height: 100%; object-fit: cover;">`;
+      } else {
+        avatarContainer.textContent = username.charAt(0).toUpperCase();
+      }
+    } catch (err) {
+      console.error('Avatar load error:', err);
+      avatarContainer.textContent = username.charAt(0).toUpperCase();
+    }
+  }
+
+  async function fetchUserReviews(username) {
+    userReviewsList.innerHTML = '<p>Loading reviews...</p>';
+
+    try {
+      const { data: reviews, error } = await db
+        .from('reviews')
+        .select('*')
+        .eq('username', username)
+        .eq('item_type', activeTab)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (!reviews || reviews.length === 0) {
+        userReviewsList.innerHTML = `<p>No ${activeTab} reviews posted yet by @${escapeHtml(username)}.</p>`;
+        return;
+      }
+
+      userReviewsList.innerHTML = reviews.map(r => `
+        <div class="review-card" style="display: flex; gap: 1rem; align-items: flex-start; margin-bottom: 1rem; background: var(--card-bg, #1e293b); padding: 1rem; border-radius: 8px;">
+          ${r.item_image ? `<img src="${escapeHtml(r.item_image)}" alt="${escapeHtml(r.item_title || '')}" style="width: 70px; height: 100px; object-fit: cover; border-radius: 6px;">` : ''}
+          <div style="flex: 1;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+              <h3 style="margin: 0;">${escapeHtml(r.item_title || 'Untitled')}</h3>
+              <span style="color: #f59e0b; font-weight: bold;">${renderRatingStars(r.rating)}</span>
+            </div>
+            <p style="margin: 0.5rem 0;">${escapeHtml(r.comment || r.review_text || '')}</p>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <small style="color: gray;">Posted ${new Date(r.created_at).toLocaleDateString()}</small>
+              <a href="review.html?id=${encodeURIComponent(r.item_id)}&type=${encodeURIComponent(r.item_type)}" style="color: var(--accent-color); text-decoration: none; font-size: 0.9rem;">View Item Page →</a>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    } catch (err) {
+      console.error('Fetch error:', err);
+      userReviewsList.innerHTML = '<p class="error">Error loading reviews.</p>';
+    }
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  async function initAccountPage() {
+    if (isInitialized) return;
+    
+    const targetUsername = getTargetUsername();
+
+    if (targetUsername) {
+      isInitialized = true;
+      profileHeader.textContent = `@${targetUsername}'s Profile`;
+      updateProfileAvatar(targetUsername);
+      await loadFavorites(targetUsername);
+      fetchUserReviews(targetUsername);
+      
+      const loginNavBtn = document.getElementById('loginNavBtn');
+      if (loginNavBtn && typeof currentUserProfile !== 'undefined' && currentUserProfile) {
+        loginNavBtn.style.display = 'none';
+      }
+    } else {
+      userReviewsList.innerHTML = `
+        <div style="text-align: center; padding: 3rem 1rem; background: var(--card-bg, #1e293b); border-radius: 12px; margin-top: 1rem;">
+          <h2>Not Logged In</h2>
+          <p style="color: #94a3b8; margin-bottom: 1.5rem;">Please log in to view your profile, write reviews, and manage your favorites.</p>
+          <a href="login.html" style="display: inline-block; padding: 0.75rem 1.5rem; background: var(--accent-color, #3b82f6); color: white; border-radius: 8px; text-decoration: none; font-weight: bold;">
+            Go to Login Page →
+          </a>
+        </div>
+      `;
+    }
+  }
+
+  window.addEventListener('authReady', () => {
+    initAccountPage();
+  });
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (viewedUser || (typeof currentUserProfile !== 'undefined' && currentUserProfile)) {
+      initAccountPage();
+    }
+  });
+</script>
 </body>
 </html>
