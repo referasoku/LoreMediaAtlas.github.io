@@ -186,22 +186,28 @@
     }
 
     async function loadFavorites(username) {
-      try {
-        const { data } = await db
-          .from('profiles')
-          .select('favorite_movies, favorite_games')
-          .eq('username', username)
-          .maybeSingle();
+  try {
+    const { data, error } = await db
+      .from('profiles')
+      .select('favorite_movies, favorite_games')
+      .eq('username', username)
+      .maybeSingle();
 
-        if (data) {
-          favoritesCache.movie = data.favorite_movies || [null, null, null, null, null];
-          favoritesCache.game = data.favorite_games || [null, null, null, null, null];
-        }
-      } catch (err) {
-        console.error('Error fetching favorites:', err);
-      }
-      renderFavoritesBar();
+    if (error) throw error;
+
+    if (data) {
+      // Ensure array length always normalizes to 5 items
+      const rawMovies = Array.isArray(data.favorite_movies) ? data.favorite_movies : [];
+      const rawGames = Array.isArray(data.favorite_games) ? data.favorite_games : [];
+
+      favoritesCache.movie = Array.from({ length: 5 }, (_, i) => rawMovies[i] || null);
+      favoritesCache.game = Array.from({ length: 5 }, (_, i) => rawGames[i] || null);
     }
+  } catch (err) {
+    console.error('Error fetching favorites:', err);
+  }
+  renderFavoritesBar();
+}
 
     function renderFavoritesBar() {
       const list = favoritesCache[activeTab] || [null, null, null, null, null];
