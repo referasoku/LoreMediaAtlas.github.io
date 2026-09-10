@@ -96,18 +96,21 @@
           }
 
           const title = escapeHtml(game.name || 'Untitled');
+          
+          // Ensure we catch whatever ID field the IGDB edge function provides
+          const gameId = game.id || game.igdb_id || '';
 
           return `
             <div class="card">
               <img src="${coverImage}" alt="${title}">
               <h3>${title}</h3>
               <p>Rating: ⭐ ${formattedRating}</p>
-              <a href="review.html?id=${game.id}&type=game" class="btn-review">Reviews & Ratings</a>
+              <a href="review.html?id=${encodeURIComponent(gameId)}&type=game" class="btn-review">Reviews & Ratings</a>
             </div>
           `;
         }).join('');
       }
-
+      
       function escapeHtml(str) {
         return String(str)
           .replace(/&/g, '&amp;')
