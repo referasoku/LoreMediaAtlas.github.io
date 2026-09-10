@@ -41,15 +41,42 @@
       <button class="tab-btn" id="gameTabBtn">Game Reviews</button>
     </div>
 
+    <!-- Favorites Bar Section -->
+    <section class="favorites-section" style="margin-bottom: 2rem; background: var(--card-bg, #1e293b); padding: 1.25rem; border-radius: 12px;">
+      <h3 id="favoritesTitle" style="margin-top: 0; margin-bottom: 1rem;">Top 5 Favorite Movies</h3>
+      
+      <div id="favoritesBar" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem;">
+        <!-- 5 Slots populated dynamically -->
+      </div>
+    </section>
+
     <!-- Review Stream -->
     <div id="userReviewsList">
       <p>Loading reviews...</p>
     </div>
   </main>
 
+  <!-- Favorites Search Modal -->
+  <div id="favModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); align-items: center; justify-content: center; z-index: 1000; padding: 1rem;">
+    <div style="background: var(--card-bg, #1e293b); width: 100%; max-width: 500px; border-radius: 12px; padding: 1.5rem; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3 id="modalTitle" style="margin: 0;">Select Favorite</h3>
+        <button id="closeModalBtn" class="btn-back" style="padding: 0.25rem 0.6rem; cursor: pointer;">✕</button>
+      </div>
+
+      <input type="text" id="favSearchInput" class="form-input" placeholder="Search by title..." style="width: 100%; margin-bottom: 1rem;">
+
+      <div id="searchResults" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem;">
+        <p style="color: #94a3b8; font-size: 0.9rem;">Type above to search media.</p>
+      </div>
+    </div>
+  </div>
+
   <script>
     let activeTab = 'movie';
     let isInitialized = false;
+    let selectedSlotIndex = null;
+    let favoritesCache = { movie: [null, null, null, null, null], game: [null, null, null, null, null] };
 
     // Parse URL Parameters (?user=Username)
     const urlParams = new URLSearchParams(window.location.search);
@@ -61,20 +88,34 @@
     const userReviewsList = document.getElementById('userReviewsList');
     const profileHeader = document.getElementById('profileHeader');
     const avatarContainer = document.getElementById('avatarContainer');
+    const favoritesTitle = document.getElementById('favoritesTitle');
+    const favoritesBar = document.getElementById('favoritesBar');
+    const favModal = document.getElementById('favModal');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    const favSearchInput = document.getElementById('favSearchInput');
+    const searchResults = document.getElementById('searchResults');
 
     // Tab Listeners
     movieTabBtn.addEventListener('click', () => switchTab('movie'));
     gameTabBtn.addEventListener('click', () => switchTab('game'));
+    closeModalBtn.addEventListener('click', () => favModal.style.display = 'none');
 
     function switchTab(type) {
       activeTab = type;
       movieTabBtn.classList.toggle('active', type === 'movie');
       gameTabBtn.classList.toggle('active', type === 'game');
 
+      favoritesTitle.textContent = `Top 5 Favorite ${type === 'movie' ? 'Movies' : 'Games'}`;
+      renderFavoritesBar();
+
       const targetUsername = getTargetUsername();
       if (targetUsername) {
         fetchUserReviews(targetUsername);
       }
+    }
+
+    function isOwner() {
+      return !viewedUser || (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.username === viewedUser);
     }
 
     function getTargetUsername() {
@@ -91,9 +132,129 @@
       return `⭐ ${num.toFixed(1)} / 5`;
     }
 
+    async function loadFavorites(username) {
+      try {
+        const { data } = await db
+          .from('profiles')
+          .select('favorite_movies, favorite_games')
+          .eq('username', username)
+          .maybeSingle();
+
+        if (data) {
+          favoritesCache.movie = data.favorite_movies || [null, null, null, null, null];
+          favoritesCache.game = data.favorite_games || [null, null, null, null, null];
+        }
+      } catch (err) {
+        console.error('Error fetching favorites:', err);
+      }
+      renderFavoritesBar();
+    }
+
+    function renderFavoritesBar() {
+      const list = favoritesCache[activeTab] || [null, null, null, null, null];
+      const canEdit = isOwner();
+
+      favoritesBar.innerHTML = list.map((item, index) => {
+        if (item) {
+          return `
+            <div style="position: relative; aspect-ratio: 2/3; background: #0f172a; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color, #334155);">
+              <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.title)}" style="width: 100%; height: 100%; object-fit: cover;">
+              <div style="position: absolute; bottom: 0; inset-x: 0; background: linear-gradient(transparent, rgba(0,0,0,0.85)); padding: 0.4rem; font-size: 0.75rem; text-align: center; color: #fff; font-weight: bold; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
+                ${escapeHtml(item.title)}
+              </div>
+              ${canEdit ? `<button onclick="removeFavorite(${index})" style="position: absolute; top: 4px; right: 4px; background: rgba(239,68,68,0.85); color: #fff; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center;">✕</button>` : ''}
+            </div>
+          `;
+        } else {
+          return `
+            <div onclick="${canEdit ? `openSearchModal(${index})` : ''}" style="aspect-ratio: 2/3; background: rgba(255,255,255,0.03); border: 2px dashed var(--border-color, #334155); border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: ${canEdit ? 'pointer' : 'default'}; color: #64748b; text-align: center; padding: 0.5rem;">
+              <span style="font-size: 1.25rem;">${canEdit ? '+' : '#'}</span>
+              <span style="font-size: 0.75rem; margin-top: 0.25rem;">${canEdit ? 'Add' : 'Empty'}</span>
+            </div>
+          `;
+        }
+      }).join('');
+    }
+
+    function openSearchModal(index) {
+      selectedSlotIndex = index;
+      favSearchInput.value = '';
+      searchResults.innerHTML = '<p style="color: #94a3b8; font-size: 0.9rem;">Type above to search media.</p>';
+      document.getElementById('modalTitle').textContent = `Select Favorite ${activeTab === 'movie' ? 'Movie' : 'Game'}`;
+      favModal.style.display = 'flex';
+    }
+
+    favSearchInput.addEventListener('input', async (e) => {
+      const query = e.target.value.trim();
+      if (query.length < 2) {
+        searchResults.innerHTML = '<p style="color: #94a3b8; font-size: 0.9rem;">Type at least 2 letters to search.</p>';
+        return;
+      }
+
+      searchResults.innerHTML = '<p style="color: #94a3b8; font-size: 0.9rem;">Searching...</p>';
+
+      try {
+        const table = activeTab === 'movie' ? 'movies' : 'games';
+        const { data, error } = await db
+          .from(table)
+          .select('id, title, poster_path, image_url')
+          .ilike('title', `%${query}%`)
+          .limit(6);
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+          searchResults.innerHTML = '<p style="color: #94a3b8; font-size: 0.9rem;">No results found.</p>';
+          return;
+        }
+
+        searchResults.innerHTML = data.map(item => {
+          const img = item.poster_path || item.image_url || 'https://via.placeholder.com/100x150';
+          return `
+            <div onclick="selectFavorite('${escapeHtml(item.title)}', '${escapeHtml(img)}')" style="display: flex; gap: 0.75rem; align-items: center; padding: 0.5rem; background: rgba(255,255,255,0.05); border-radius: 6px; cursor: pointer;">
+              <img src="${escapeHtml(img)}" alt="${escapeHtml(item.title)}" style="width: 40px; height: 55px; object-fit: cover; border-radius: 4px;">
+              <strong style="color: #f8fafc; font-size: 0.9rem;">${escapeHtml(item.title)}</strong>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error('Search error:', err);
+        searchResults.innerHTML = '<p style="color: #ef4444; font-size: 0.9rem;">Failed to fetch results.</p>';
+      }
+    });
+
+    async function selectFavorite(title, imageUrl) {
+      if (selectedSlotIndex === null) return;
+
+      favoritesCache[activeTab][selectedSlotIndex] = { title, image_url: imageUrl };
+      favModal.style.display = 'none';
+      renderFavoritesBar();
+      await syncFavoritesToDB();
+    }
+
+    async function removeFavorite(index) {
+      favoritesCache[activeTab][index] = null;
+      renderFavoritesBar();
+      await syncFavoritesToDB();
+    }
+
+    async function syncFavoritesToDB() {
+      const username = getTargetUsername();
+      if (!username) return;
+
+      try {
+        const updatePayload = activeTab === 'movie' 
+          ? { favorite_movies: favoritesCache.movie }
+          : { favorite_games: favoritesCache.game };
+
+        await db.from('profiles').update(updatePayload).eq('username', username);
+      } catch (err) {
+        console.error('Error saving favorites:', err);
+      }
+    }
+
     async function updateProfileAvatar(username) {
       try {
-        // Query profile record to check for avatar image URL
         const { data: profile } = await db
           .from('profiles')
           .select('avatar_url')
@@ -103,7 +264,6 @@
         if (profile && profile.avatar_url) {
           avatarContainer.innerHTML = `<img src="${escapeHtml(profile.avatar_url)}" alt="${escapeHtml(username)}" style="width: 100%; height: 100%; object-fit: cover;">`;
         } else {
-          // Display the first letter of the username as a fallback initial
           avatarContainer.textContent = username.charAt(0).toUpperCase();
         }
       } catch (err) {
@@ -171,18 +331,17 @@
         isInitialized = true;
         profileHeader.textContent = `@${targetUsername}'s Profile`;
         updateProfileAvatar(targetUsername);
+        await loadFavorites(targetUsername);
         fetchUserReviews(targetUsername);
       } else {
         userReviewsList.innerHTML = '<p>User profile not found. Please log in.</p>';
       }
     }
 
-    // 1. Listen for authReady event if auth.js finishes AFTER script load
     window.addEventListener('authReady', () => {
       initAccountPage();
     });
 
-    // 2. Immediate check on DOMContentLoaded if auth.js finished BEFORE script load
     document.addEventListener('DOMContentLoaded', () => {
       if (viewedUser || (typeof currentUserProfile !== 'undefined' && currentUserProfile)) {
         initAccountPage();
@@ -190,5 +349,4 @@
     });
   </script>
 </body>
-</html>
 </html>
