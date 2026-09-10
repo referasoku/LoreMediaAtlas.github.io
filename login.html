@@ -164,37 +164,28 @@
       }
     });
 
-    // Handle Sign Up Submit
-    signupForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      errorDisplay.textContent = '';
+   // Handle Sign Up Submit
+signupForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  errorDisplay.textContent = '';
 
-      const username = document.getElementById('signupUsername').value.trim();
-      const email = document.getElementById('signupEmail').value.trim();
-      const password = document.getElementById('signupPassword').value;
+  const username = document.getElementById('signupUsername').value.trim();
+  const email = document.getElementById('signupEmail').value.trim();
+  const password = document.getElementById('signupPassword').value;
 
-      if (!isValidUsername(username)) {
-        return;
-      }
+  if (!isValidUsername(username)) {
+    return;
+  }
 
-      try {
-        const { data, error } = await db.auth.signUp({
-          email,
-          password,
-          options: { data: { username } }
-        });
-
-        if (error) {
-          errorDisplay.textContent = error.message;
-          return;
-        }
-
-        window.location.href = 'account.html';
-      } catch (err) {
-        console.error('Sign up error:', err);
-        errorDisplay.textContent = 'Failed to create account. Please try again.';
-      }
-    });
+  try {
+    // Calls signUpUser from auth.js to handle lowercasing & duplicate username checks
+    await signUpUser(email, password, username);
+    window.location.href = 'account.html';
+  } catch (err) {
+    console.error('Sign up error:', err);
+    errorDisplay.textContent = err.message || 'Failed to create account. Please try again.';
+  }
+});
   </script>
 </body>
 </html>
