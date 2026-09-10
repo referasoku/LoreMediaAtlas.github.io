@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Users - LoreMediaAtlas</title>
   <link rel="stylesheet" href="css/style.css">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/auth.js"></script>
 </head>
 <body>
 
@@ -21,48 +24,79 @@
   </header>
 
   <main class="container">
-    <h1>Find Members</h1>
-    <input type="text" id="userSearch" class="search-input" placeholder="Search by username...">
+    <h1>Community Directory</h1>
+    <input type="text" id="userSearch" class="search-input" placeholder="Search users by name...">
 
-    <p id="statusMessage" style="color: var(--accent-color); margin-top: 1rem;"></p>
-
-    <div id="usersList" class="user-list" style="margin-top: 1.5rem;">
-      <!-- Member search results will load here -->
+    <div id="usersGrid" class="card-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem; margin-top: 1.5rem;">
+      <p>Loading users...</p>
     </div>
   </main>
 
   <script>
-    const searchInput = document.getElementById('userSearch');
-    const usersList = document.getElementById('usersList');
+    const usersGrid = document.getElementById('usersGrid');
+    const userSearch = document.getElementById('userSearch');
+    let allUsers = [];
 
-    searchInput.addEventListener('input', (e) => {
-      const query = e.target.value.trim().toLowerCase();
+    async function fetchUsers() {
+      try {
+        const { data: profiles, error } = await db
+          .from('profiles')
+          .select('username, avatar_url')
+          .order('username', { ascending: true });
 
-      if (query.length === 0) {
-        usersList.innerHTML = '';
+        if (error) throw error;
+
+        allUsers = profiles || [];
+        renderUsers(allUsers);
+      } catch (err) {
+        console.error('Error fetching users:', err);
+        usersGrid.innerHTML = `<p class="error">Error loading users: ${escapeHtml(err.message)}</p>`;
+      }
+    }
+
+    function renderUsers(users) {
+      if (!users || users.length === 0) {
+        usersGrid.innerHTML = '<p>No users found.</p>';
         return;
       }
 
-      const results = mockUsers.filter(user => user.toLowerCase().includes(query));
+      usersGrid.innerHTML = users.map(user => {
+        const username = escapeHtml(user.username || 'Anonymous');
+        const initial = username.charAt(0).toUpperCase();
 
-      if (results.length === 0) {
-        usersList.innerHTML = '<p>No members found with that name.</p>';
-        return;
-      }
+        const avatarHTML = user.avatar_url
+          ? `<img src="${escapeHtml(user.avatar_url)}" alt="${username}" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;">`
+          : `<div style="width: 60px; height: 60px; border-radius: 50%; background: var(--card-bg, #1e293b); border: 2px solid var(--accent-color, #3b82f6); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.25rem; color: #f8fafc;">${initial}</div>`;
 
-      usersList.innerHTML = results.map(user => `
-        <div class="user-card">
-          <div>
-            <strong>${user}</strong>
+        return `
+          <div class="card" style="display: flex; flex-direction: column; align-items: center; text-align: center; padding: 1.25rem; background: var(--card-bg, #1e293b); border-radius: 12px; border: 1px solid var(--border-color, #334155);">
+            <div style="margin-bottom: 0.75rem;">${avatarHTML}</div>
+            <h3 style="margin: 0 0 0.5rem 0; font-size: 1rem;">@${username}</h3>
+            <a href="account.html?user=${encodeURIComponent(user.username)}" class="btn-review" style="display: inline-block; padding: 0.4rem 0.8rem; background: var(--accent-color, #3b82f6); color: white; border-radius: 6px; text-decoration: none; font-size: 0.85rem; font-weight: bold; margin-top: auto;">View Profile</a>
           </div>
-          <a href="account.html?user=${encodeURIComponent(user)}">View Reviews</a>
-        </div>
-      `).join('');
+        `;
+      }).join('');
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    userSearch.addEventListener('input', (e) => {
+      const term = e.target.value.toLowerCase().trim();
+      const filtered = allUsers.filter(u => u.username && u.username.toLowerCase().includes(term));
+      renderUsers(filtered);
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+      fetchUsers();
     });
   </script>
-  <!-- Supabase JS Client (Required for auth.js) -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- Shared Auth Script -->
-  <script src="js/auth.js"></script>
 </body>
 </html>
