@@ -12,56 +12,80 @@
 </head>
 <body>
 
-  <main class="container" style="max-width: 400px; margin-top: 5rem;">
-    <h1 style="text-align: center;">LoreMediaAtlas</h1>
-    <p style="text-align: center; margin-bottom: 2rem;">Sign in or create an account to access reviews.</p>
+  <header>
+    <h2>LoreMediaAtlas</h2>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="movies.html">Movies</a>
+      <a href="games.html">Games</a>
+      <a href="feed.html">Feed</a>
+      <a href="users.html">Users</a>
+      <a href="account.html">Account</a>
+    </nav>
+  </header>
 
-    <!-- Navigation Tabs without inline onclick handlers -->
-    <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
-      <button id="showLoginBtn" class="tab-btn active" style="flex: 1;">Sign In</button>
-      <button id="showSignupBtn" class="tab-btn" style="flex: 1;">Sign Up</button>
+  <main class="container">
+    <div class="review-section" style="max-width: 420px; margin: 3rem auto;">
+      <h2 style="text-align: center; margin-top: 0;">LoreMediaAtlas</h2>
+      <p style="text-align: center; color: #94a3b8; margin-bottom: 1.5rem;">
+        Sign in or create an account to post reviews and track your media.
+      </p>
+
+      <!-- Dynamic Tab Toggle -->
+      <div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem;">
+        <button id="showLoginBtn" class="btn-primary" style="flex: 1;">Sign In</button>
+        <button id="showSignupBtn" class="btn-back" style="flex: 1;">Sign Up</button>
+      </div>
+
+      <!-- Login Form -->
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="loginEmail">Email</label>
+          <input type="email" id="loginEmail" class="form-input" placeholder="your@email.com" required>
+        </div>
+        <div class="form-group">
+          <label for="loginPassword">Password</label>
+          <input type="password" id="loginPassword" class="form-input" placeholder="••••••••" required>
+        </div>
+        <button type="submit" class="btn-primary" style="width: 100%;">Sign In</button>
+      </form>
+
+      <!-- Sign Up Form -->
+      <form id="signupForm" style="display: none;">
+        <div class="form-group">
+          <label for="signupUsername">Username</label>
+          <input type="text" id="signupUsername" class="form-input" placeholder="e.g. MovieBuff99" required>
+        </div>
+        <div class="form-group">
+          <label for="signupEmail">Email</label>
+          <input type="email" id="signupEmail" class="form-input" placeholder="your@email.com" required>
+        </div>
+        <div class="form-group">
+          <label for="signupPassword">Password</label>
+          <input type="password" id="signupPassword" class="form-input" placeholder="••••••••" required minlength="6">
+        </div>
+        <button type="submit" class="btn-primary" style="width: 100%;">Create Account</button>
+      </form>
+
+      <p id="authError" style="color: #ef4444; margin-top: 1rem; text-align: center; font-size: 0.95rem;"></p>
     </div>
-
-    <!-- Login Form -->
-    <form id="loginForm">
-      <div class="form-group">
-        <label>Email</label>
-        <input type="email" id="loginEmail" class="form-input" required>
-      </div>
-      <div class="form-group">
-        <label>Password</label>
-        <input type="password" id="loginPassword" class="form-input" required>
-      </div>
-      <button type="submit" class="btn-submit" style="width: 100%;">Sign In</button>
-    </form>
-
-    <!-- Sign Up Form -->
-    <form id="signupForm" style="display: none;">
-      <div class="form-group">
-        <label>Username</label>
-        <input type="text" id="signupUsername" class="form-input" placeholder="e.g. MovieBuff99" required>
-      </div>
-      <div class="form-group">
-        <label>Email</label>
-        <input type="email" id="signupEmail" class="form-input" required>
-      </div>
-      <div class="form-group">
-        <label>Password</label>
-        <input type="password" id="signupPassword" class="form-input" required minlength="6">
-      </div>
-      <button type="submit" class="btn-submit" style="width: 100%;">Create Account</button>
-    </form>
-
-    <p id="authError" style="color: #ef4444; margin-top: 1rem; text-align: center;"></p>
   </main>
 
   <script>
-    const SUPABASE_URL = 'https://tpeqgjgeeyrepaijdcuj.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwZXFnamdlZXlyZXBhaWpkY3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NzczMjMsImV4cCI6MjEwNDE1MzMyM30.YEAcpOlAiaFdYHniMZdzM684NYiF5fVPVXUaRGWraC4';
-    const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Global Safe Supabase Client Initialization
+    window.SUPABASE_URL = window.SUPABASE_URL || 'https://tpeqgjgeeyrepaijdcuj.supabase.co';
+    window.SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwZXFnamdlZXlyZXBhaWpkY3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NzczMjMsImV4cCI6MjEwNDE1MzMyM30.YEAcpOlAiaFdYHniMZdzM684NYiF5fVPVXUaRGWraC4';
 
-    // Initialize Profanity Filter & Reserved Names
-    const filter = new Filter();
+    if (!window.db && typeof supabase !== 'undefined') {
+      window.db = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+    }
+    const db = window.db;
+
+    // Initialize Profanity Filter Safely
+    let filter = null;
+    if (typeof Filter !== 'undefined') {
+      filter = new Filter();
+    }
     const reservedNames = ['admin', 'administrator', 'mod', 'moderator', 'lorevault', 'system', 'support', 'root'];
 
     // DOM Elements
@@ -73,17 +97,21 @@
 
     let mode = 'login';
 
-    // Clean Toggle Handler without inline HTML execution
     function switchMode(selectedMode) {
       mode = selectedMode;
       loginForm.style.display = mode === 'login' ? 'block' : 'none';
       signupForm.style.display = mode === 'signup' ? 'block' : 'none';
-      showLoginBtn.classList.toggle('active', mode === 'login');
-      showSignupBtn.classList.toggle('active', mode === 'signup');
+
+      if (mode === 'login') {
+        showLoginBtn.className = 'btn-primary';
+        showSignupBtn.className = 'btn-back';
+      } else {
+        showLoginBtn.className = 'btn-back';
+        showSignupBtn.className = 'btn-primary';
+      }
       errorDisplay.textContent = '';
     }
 
-    // Attach Event Listeners Safely
     showLoginBtn.addEventListener('click', () => switchMode('login'));
     showSignupBtn.addEventListener('click', () => switchMode('signup'));
 
@@ -107,7 +135,7 @@
         return false;
       }
 
-      if (filter.isProfane(username)) {
+      if (filter && filter.isProfane(username)) {
         errorDisplay.textContent = 'Username contains inappropriate language. Please choose another.';
         return false;
       }
@@ -115,21 +143,13 @@
       return true;
     }
 
-    // Handle Login
+    // Handle Login Submit
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       errorDisplay.textContent = '';
 
-      const emailInput = document.getElementById('loginEmail');
-      const passwordInput = document.getElementById('loginPassword');
-
-      const email = emailInput ? emailInput.value.trim().toLowerCase() : '';
-      const password = passwordInput ? passwordInput.value : '';
-
-      if (!email || !password) {
-        errorDisplay.textContent = 'Please enter both email and password.';
-        return;
-      }
+      const email = document.getElementById('loginEmail').value.trim().toLowerCase();
+      const password = document.getElementById('loginPassword').value;
 
       try {
         const { data, error } = await db.auth.signInWithPassword({ email, password });
@@ -139,39 +159,51 @@
           return;
         }
 
-        // Direct browser location swap
-        window.location.replace('index.html');
-
+        window.location.replace('account.html');
       } catch (err) {
         console.error('Login error:', err);
         errorDisplay.textContent = 'An unexpected error occurred. Please try again.';
       }
     });
 
-    // Handle Sign Up
+    // Handle Sign Up Submit
     signupForm.addEventListener('submit', async (e) => {
       e.preventDefault();
+      errorDisplay.textContent = '';
+
       const username = document.getElementById('signupUsername').value.trim();
-      const email = document.getElementById('signupEmail').value;
+      const email = document.getElementById('signupEmail').value.trim();
       const password = document.getElementById('signupPassword').value;
 
       if (!isValidUsername(username)) {
         return;
       }
 
-      const { data, error } = await db.auth.signUp({
-        email,
-        password,
-        options: { data: { username } }
-      });
+      try {
+        const { data, error } = await db.auth.signUp({
+          email,
+          password,
+          options: { data: { username } }
+        });
 
-      if (error) {
-        errorDisplay.textContent = error.message;
-      } else {
-        alert('Account created! Logging you in...');
-        window.location.replace('index.html');
+        if (error) {
+          errorDisplay.textContent = error.message;
+          return;
+        }
+
+        if (data.user) {
+          await db.from('profiles').insert([
+            { id: data.user.id, username: username }
+          ]);
+        }
+
+        window.location.replace('account.html');
+      } catch (err) {
+        console.error('Sign up error:', err);
+        errorDisplay.textContent = 'Failed to create account. Please try again.';
       }
     });
   </script>
 </body>
+</html>
 </html>
