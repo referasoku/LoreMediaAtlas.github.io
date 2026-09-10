@@ -6,9 +6,8 @@
   <title>Login - LoreMediaAtlas</title>
   <link rel="stylesheet" href="css/style.css">
   
-  <!-- Supabase SDK & Bad Words Filter -->
+  <!-- Supabase SDK -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bad-words@3.0.4/lib/badwords.min.js"></script>
 </head>
 <body>
 
@@ -74,19 +73,15 @@
   <script>
     // Global Safe Supabase Client Initialization
     window.SUPABASE_URL = window.SUPABASE_URL || 'https://tpeqgjgeeyrepaijdcuj.supabase.co';
-    window.SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwZXFnamdlZXlyZXBhaWpkY3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NzczMjMsImV4cCI6MjEwNDE1MzMyM30.YEAcpOlAiaFdYHniMZdzM684NYiF5fVPVXUaRGWraC4';
+    window.SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwZXFnamdlZXlyZXBhaWpdY3VqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1NzczMjMsImV4cCI6MjEwNDE1MzMyM30.YEAcpOlAiaFdYHniMZdzM684NYiF5fVPVXUaRGWraC4';
 
     if (!window.db && typeof supabase !== 'undefined') {
       window.db = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
     }
     const db = window.db;
 
-    // Initialize Profanity Filter Safely
-    let filter = null;
-    if (typeof Filter !== 'undefined') {
-      filter = new Filter();
-    }
-    const reservedNames = ['admin', 'administrator', 'mod', 'moderator', 'lorevault', 'system', 'support', 'root'];
+    // Reserved and restricted terms
+    const bannedWords = ['admin', 'administrator', 'mod', 'moderator', 'lorevault', 'system', 'support', 'root'];
 
     // DOM Elements
     const showLoginBtn = document.getElementById('showLoginBtn');
@@ -115,28 +110,31 @@
     showLoginBtn.addEventListener('click', () => switchMode('login'));
     showSignupBtn.addEventListener('click', () => switchMode('signup'));
 
+    // Automatically select tab if ?mode=signup parameter is present in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('mode') === 'signup') {
+      switchMode('signup');
+    }
+
     // Front-End Username Validation Function
     function isValidUsername(username) {
       errorDisplay.textContent = '';
+      const cleanName = username.toLowerCase().trim();
 
-      if (username.length < 3 || username.length > 20) {
+      if (cleanName.length < 3 || cleanName.length > 20) {
         errorDisplay.textContent = 'Username must be between 3 and 20 characters.';
         return false;
       }
 
       const validPattern = /^[a-zA-Z0-9_]+$/;
-      if (!validPattern.test(username)) {
+      if (!validPattern.test(cleanName)) {
         errorDisplay.textContent = 'Username can only contain letters, numbers, and underscores.';
         return false;
       }
 
-      if (reservedNames.includes(username.toLowerCase())) {
-        errorDisplay.textContent = 'This username is reserved. Please choose another.';
-        return false;
-      }
-
-      if (filter && filter.isProfane(username)) {
-        errorDisplay.textContent = 'Username contains inappropriate language. Please choose another.';
+      const isBanned = bannedWords.some(word => cleanName.includes(word));
+      if (isBanned) {
+        errorDisplay.textContent = 'Username contains inappropriate or reserved terms. Choose another.';
         return false;
       }
 
@@ -191,13 +189,7 @@
           return;
         }
 
-        if (data.user) {
-          await db.from('profiles').insert([
-            { id: data.user.id, username: username }
-          ]);
-        }
-
-        window.location.replace('account.html');
+        window.location.href = 'account.html';
       } catch (err) {
         console.error('Sign up error:', err);
         errorDisplay.textContent = 'Failed to create account. Please try again.';
@@ -205,5 +197,4 @@
     });
   </script>
 </body>
-</html>
 </html>
