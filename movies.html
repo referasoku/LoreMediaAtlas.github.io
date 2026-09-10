@@ -79,11 +79,34 @@
         }
       }
 
-      function renderMovies(movies) {
+     function renderMovies(movies) {
         if (!movies || movies.length === 0) {
           movieGrid.innerHTML = '<p>No movies found matching your search.</p>';
           return;
         }
+
+        movieGrid.innerHTML = movies.map(movie => {
+          const formattedRating = formatHalfStarRating(movie.vote_average);
+
+          const posterImage = movie.poster_path 
+            ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
+            : 'https://via.placeholder.com/200x300?text=No+Poster';
+
+          const title = escapeHtml(movie.title || movie.original_title || 'Untitled');
+          
+          // Ensure we catch whatever ID field the TMDB edge function returns
+          const movieId = movie.id || movie.tmdb_id || '';
+
+          return `
+            <div class="card">
+              <img src="${posterImage}" alt="${title}">
+              <h3>${title}</h3>
+              <p>Rating: ⭐ ${formattedRating}</p>
+              <a href="review.html?id=${encodeURIComponent(movieId)}&type=movie" class="btn-review">Reviews & Ratings</a>
+            </div>
+          `;
+        }).join('');
+      }
 
         movieGrid.innerHTML = movies.map(movie => {
           const formattedRating = formatHalfStarRating(movie.vote_average);
