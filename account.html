@@ -21,6 +21,8 @@
       <a href="feed.html">Feed</a>
       <a href="users.html">Users</a>
       <a href="account.html" class="active">Account</a>
+      <a href="login.html" id="loginNavBtn" style="margin-left: 0.5rem; padding: 0.3rem 0.75rem; background: var(--accent-color, #3b82f6); color: #fff; border-radius: 6px; text-decoration: none;">Log In</a>
+</nav>
     </nav>
   </header>
 
@@ -322,21 +324,36 @@
         .replace(/'/g, '&#039;');
     }
 
-    async function initAccountPage() {
-      if (isInitialized) return;
-      
-      const targetUsername = getTargetUsername();
+   async function initAccountPage() {
+  if (isInitialized) return;
+  
+  const targetUsername = getTargetUsername();
 
-      if (targetUsername) {
-        isInitialized = true;
-        profileHeader.textContent = `@${targetUsername}'s Profile`;
-        updateProfileAvatar(targetUsername);
-        await loadFavorites(targetUsername);
-        fetchUserReviews(targetUsername);
-      } else {
-        userReviewsList.innerHTML = '<p>User profile not found. Please log in.</p>';
-      }
+  if (targetUsername) {
+    isInitialized = true;
+    profileHeader.textContent = `@${targetUsername}'s Profile`;
+    updateProfileAvatar(targetUsername);
+    await loadFavorites(targetUsername);
+    fetchUserReviews(targetUsername);
+    
+    // Hide the login nav button if user is already logged in
+    const loginNavBtn = document.getElementById('loginNavBtn');
+    if (loginNavBtn && typeof currentUserProfile !== 'undefined' && currentUserProfile) {
+      loginNavBtn.style.display = 'none';
     }
+  } else {
+    // Render a logged-out state with a direct button to login.html
+    userReviewsList.innerHTML = `
+      <div style="text-align: center; padding: 3rem 1rem; background: var(--card-bg, #1e293b); border-radius: 12px; margin-top: 1rem;">
+        <h2>Not Logged In</h2>
+        <p style="color: #94a3b8; margin-bottom: 1.5rem;">Please log in to view your profile, write reviews, and manage your favorites.</p>
+        <a href="login.html" style="display: inline-block; padding: 0.75rem 1.5rem; background: var(--accent-color, #3b82f6); color: white; border-radius: 8px; text-decoration: none; font-weight: bold;">
+          Go to Login Page →
+        </a>
+      </div>
+    `;
+  }
+}
 
     window.addEventListener('authReady', () => {
       initAccountPage();
