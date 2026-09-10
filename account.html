@@ -25,7 +25,14 @@
   </header>
 
   <main class="container">
-    <h1 id="profileHeader">My Profile</h1>
+    <!-- User Header with Circular Profile Avatar -->
+    <div class="profile-header-container" style="display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+      <div id="avatarContainer" style="width: 60px; height: 60px; border-radius: 50%; background-color: var(--card-bg, #1e293b); border: 2px solid var(--accent-color, #3b82f6); display: flex; align-items: center; justify-content: center; overflow: hidden; font-weight: bold; font-size: 1.5rem; color: #f8fafc; flex-shrink: 0;">
+        ?
+      </div>
+      <h1 id="profileHeader" style="margin: 0;">My Profile</h1>
+    </div>
+
     <p style="margin-bottom: 2rem;">Manage and view submitted reviews.</p>
 
     <!-- Tab Selection -->
@@ -53,6 +60,7 @@
     const gameTabBtn = document.getElementById('gameTabBtn');
     const userReviewsList = document.getElementById('userReviewsList');
     const profileHeader = document.getElementById('profileHeader');
+    const avatarContainer = document.getElementById('avatarContainer');
 
     // Tab Listeners
     movieTabBtn.addEventListener('click', () => switchTab('movie'));
@@ -81,6 +89,27 @@
       if (rating === null || rating === undefined) return 'N/A';
       const num = parseFloat(rating);
       return `⭐ ${num.toFixed(1)} / 5`;
+    }
+
+    async function updateProfileAvatar(username) {
+      try {
+        // Query profile record to check for avatar image URL
+        const { data: profile } = await db
+          .from('profiles')
+          .select('avatar_url')
+          .eq('username', username)
+          .maybeSingle();
+
+        if (profile && profile.avatar_url) {
+          avatarContainer.innerHTML = `<img src="${escapeHtml(profile.avatar_url)}" alt="${escapeHtml(username)}" style="width: 100%; height: 100%; object-fit: cover;">`;
+        } else {
+          // Display the first letter of the username as a fallback initial
+          avatarContainer.textContent = username.charAt(0).toUpperCase();
+        }
+      } catch (err) {
+        console.error('Avatar load error:', err);
+        avatarContainer.textContent = username.charAt(0).toUpperCase();
+      }
     }
 
     async function fetchUserReviews(username) {
@@ -141,6 +170,7 @@
       if (targetUsername) {
         isInitialized = true;
         profileHeader.textContent = `@${targetUsername}'s Profile`;
+        updateProfileAvatar(targetUsername);
         fetchUserReviews(targetUsername);
       } else {
         userReviewsList.innerHTML = '<p>User profile not found. Please log in.</p>';
@@ -160,4 +190,5 @@
     });
   </script>
 </body>
+</html>
 </html>
