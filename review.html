@@ -97,11 +97,12 @@
       
       let selectedRating = 0;
 
-      let currentUserProfile = null;
+  
 
-      // Listen for the custom authReady event dispatched by auth.js
+      // listen for the update event from auth.js
       window.addEventListener('authReady', (e) => {
-        currentUserProfile = e.detail.profile;
+      // local reference, update a shared window variable instead:
+      window.currentUserProfile = e.detail.profile;
       });
       
       // 1. Back Navigation Logic
