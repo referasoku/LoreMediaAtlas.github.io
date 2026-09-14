@@ -226,11 +226,13 @@
               'Prefer': 'return=minimal'
             },
             body: JSON.stringify({
-              media_id: mediaId,
-              media_type: mediaType,
+              item_id: mediaId,
+              item_type: mediaType,
+              item_title: item.title || item.name || 'Untitled',
+              item_image: poster,
+              username: currentUserProfile.username,
               rating: selectedRating,
-              review_text: content
-              username: currentUserProfile.username
+              comment: content
             })
           });
 
