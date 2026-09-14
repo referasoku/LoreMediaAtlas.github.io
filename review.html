@@ -97,6 +97,13 @@
       
       let selectedRating = 0;
 
+      let currentUserProfile = null;
+
+      // Listen for the custom authReady event dispatched by auth.js
+      window.addEventListener('authReady', (e) => {
+        currentUserProfile = e.detail.profile;
+      });
+      
       // 1. Back Navigation Logic
       backBtn.addEventListener('click', () => {
         if (document.referrer && document.referrer.includes(window.location.host)) {
