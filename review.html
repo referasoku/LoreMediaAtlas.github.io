@@ -236,9 +236,9 @@
             body: JSON.stringify({
               item_id: mediaId,
               item_type: mediaType,
-              item_title: item.title || item.name || 'Untitled',
-              item_image: poster,
-              username: currentUserProfile.username,
+              item_title: currentMedia?.title || currentMedia?.name || 'Untitled',
+              item_image: currentPosterUrl,
+              username: currentUserProfile?.username,
               rating: selectedRating,
               comment: content
             })
