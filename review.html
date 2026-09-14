@@ -208,6 +208,12 @@
           return;
         }
 
+        // Ensure user profile is loaded
+        if (!currentUserProfile || !currentUserProfile.username) {
+          statusMessage.innerHTML = '<p class="error">You must be logged in to post a review.</p>';
+          return;
+        }
+        
         statusMessage.innerHTML = '<p class="info">Submitting review...</p>';
 
         try {
@@ -224,6 +230,7 @@
               media_type: mediaType,
               rating: selectedRating,
               review_text: content
+              username: currentUserProfile.username
             })
           });
 
