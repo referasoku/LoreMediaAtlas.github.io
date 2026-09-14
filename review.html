@@ -144,31 +144,34 @@
         }
       }
 
-      // 3. Render Media Details Header
-      function renderDetails(media) {
-        if (!media) {
-          mediaDetails.innerHTML = '<p class="error">Media info could not be found.</p>';
-          return;
-        }
 
-        const title = escapeHtml(media.title || media.name || 'Untitled');
-        const overview = escapeHtml(media.overview || media.summary || 'No description available.');
-        const poster = media.poster_path 
-          ? `https://image.tmdb.org/t/p/w500${media.poster_path}` 
-          : (media.cover?.url ? media.cover.url.replace('t_thumb', 't_cover_big') : 'https://via.placeholder.com/200x300?text=No+Poster');
+// 3. Render Media Details Header
+function renderDetails(media) {
+  if (!media) {
+    mediaDetails.innerHTML = '<p class="error">Media info could not be found.</p>';
+    return;
+  }
 
-        mediaDetails.innerHTML = `
-          <div class="details-card">
-            <img src="${poster}" alt="${title}">
-            <div class="details-info">
-              <h2>${title}</h2>
-              <p><strong>Type:</strong> ${mediaType ? mediaType.toUpperCase() : ''}</p>
-              <p>${overview}</p>
-            </div>
-          </div>
-        `;
-      }
+  // Save globally for the submit listener
+  currentMedia = media;
+  currentPosterUrl = media.poster_path 
+    ? `https://image.tmdb.org/t/p/w500${media.poster_path}` 
+    : (media.cover?.url ? media.cover.url.replace('t_thumb', 't_cover_big') : 'https://via.placeholder.com/200x300?text=No+Poster');
 
+  const title = escapeHtml(media.title || media.name || 'Untitled');
+  const overview = escapeHtml(media.overview || media.summary || 'No description available.');
+
+  mediaDetails.innerHTML = `
+    <div class="details-card">
+      <img src="${currentPosterUrl}" alt="${title}">
+      <div class="details-info">
+        <h2>${title}</h2>
+        <p><strong>Type:</strong> ${mediaType ? mediaType.toUpperCase() : ''}</p>
+        <p>${overview}</p>
+      </div>
+    </div>
+  `;
+}
       // 4. Half-Star Rating System Logic
       function renderStars(rating) {
         stars.forEach((star, index) => {
